@@ -123,6 +123,7 @@ function isValidCandidate(p1, p2, bars, kind, tolerancePct) {
 }
 
 export function findTrendLine(bars, kind, { window = 2, tolerancePct = 0.0015 } = {}) {
+  if (!Array.isArray(bars)) return null;
   const points = findSwingPoints(bars, kind, window);
   if (points.length < 2) return null;
 

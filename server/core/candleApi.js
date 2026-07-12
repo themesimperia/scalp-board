@@ -18,7 +18,7 @@ export function createCandleHandler(market, connectors, cache) {
     const u = new URL(req.url, "http://x");
     const symbol = (u.searchParams.get("symbol") || "").toUpperCase();
     const interval = u.searchParams.get("interval") || "5m";
-    const limit = Math.min(+(u.searchParams.get("limit") || 60) || 60, 500);
+    const limit = Math.max(1, Math.min(Math.floor(+(u.searchParams.get("limit")) || 60), 500));
 
     const coin = market.coins.get(symbol);
     if (!coin) {
@@ -37,16 +37,25 @@ export function createCandleHandler(market, connectors, cache) {
     }
 
     const key = `${best}:${info.sym}:${interval}:${limit}`;
-    let candles = cache.get(key);
-    if (!candles) {
-      try {
-        candles = await conn.fetchKlines(info.sym, interval, limit);
-      } catch {
-        res.writeHead(502, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "fetch failed" }));
-        return;
-      }
-      cache.set(key, candles);
+    let pending = cache.get(key);
+    if (!pending) {
+      // Cache the in-flight promise (not just the resolved value) so concurrent
+      // requests for the same key await the same fetch instead of each starting
+      // their own — the cache would otherwise only dedupe sequential requests.
+      pending = conn.fetchKlines(info.sym, interval, limit).catch(err => {
+        cache.set(key, null); // don't leave a rejected fetch cached; let the next request retry
+        throw err;
+      });
+      cache.set(key, pending);
+    }
+
+    let candles;
+    try {
+      candles = await pending;
+    } catch {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "fetch failed" }));
+      return;
     }
 
     res.writeHead(200, { "Content-Type": "application/json" });

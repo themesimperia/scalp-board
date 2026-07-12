@@ -194,4 +194,10 @@ import { createBarAggregator, natr, avgRange, selectCoins, paginate, pageCount, 
   assert.strictEqual(findTrendLine(bars, "low"), null);
 }
 
+// --- findTrendLine: non-array input returns null instead of throwing ---
+{
+  assert.strictEqual(findTrendLine(undefined, "low"), null, "undefined bars -> null");
+  assert.strictEqual(findTrendLine(null, "low"), null, "null bars -> null");
+}
+
 console.log("web metrics (bar aggregation) tests passed ✔");
