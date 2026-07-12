@@ -9,6 +9,7 @@ import { Market } from "./core/market.js";
 import { startKlineLoop } from "./core/klines.js";
 import { startDensityLoop } from "./core/density.js";
 import { AlertEngine } from "./core/alerts.js";
+import { createCandleCache, createCandleHandler } from "./core/candleApi.js";
 import { makeTelegram } from "./telegram.js";
 
 import * as binance from "./exchanges/binance.js";
@@ -42,6 +43,9 @@ const engine = new AlertEngine(CFG, market, evt => {
 });
 market.onListing = (coin, src) => engine.onListing(coin, src);
 
+const candleCache = createCandleCache(45_000);
+const candleHandler = createCandleHandler(market, connectors, candleCache);
+
 const onTicker = (src, t) => {
   const coin = market.upsert(src, t);
   if (coin) engine.onTick(coin);
@@ -66,6 +70,10 @@ const server = http.createServer((req, res) => {
   if (u.pathname === "/api/snapshot") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ coins: market.snapshot(), walls: latestWalls, status, ts: Date.now() }));
+    return;
+  }
+  if (u.pathname === "/api/candles") {
+    candleHandler(req, res);
     return;
   }
   let file = u.pathname === "/" ? "index.html" : u.pathname.slice(1);

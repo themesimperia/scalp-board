@@ -7,7 +7,7 @@
     "start": "node server/index.js",
     "dev": "cross-env MOCK=1 node --watch server/index.js",
     "mock": "cross-env MOCK=1 node server/index.js",
-    "test": "node test/metrics.test.js && node test/lib.channels.test.js && node test/lib.counters.test.js && node test/lib.logger.test.js && node test/lib.redis.test.js && node test/lib.health.test.js && node test/db.schema.test.js"
+    "test": "node test/metrics.test.js && node test/lib.channels.test.js && node test/lib.counters.test.js && node test/lib.logger.test.js && node test/lib.redis.test.js && node test/lib.health.test.js && node test/db.schema.test.js && node test/server.candles.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
