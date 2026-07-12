@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { createBarAggregator, natr, avgRange, selectCoins, paginate, pageCount } from "../web/lib/metrics.js";
+import { createBarAggregator, natr, avgRange, selectCoins, paginate, pageCount, findTrendLine, findTrendLines } from "../web/lib/metrics.js";
 
 // --- single tick creates one bar ---
 {
@@ -141,6 +141,57 @@ import { createBarAggregator, natr, avgRange, selectCoins, paginate, pageCount }
   assert.strictEqual(pageCount(7, 3), 3);
   assert.strictEqual(pageCount(9, 3), 3);
   assert.strictEqual(pageCount(0, 3), 1, "zero items still reports 1 page");
+}
+
+// --- trend lines: best-fit selection over 3 perfectly colinear swing lows ---
+{
+  // lows chosen so swing lows (dips) occur at exactly i=3 (100), i=7 (103),
+  // i=11 (106) — colinear (slope 0.75/index).
+  const lows = [150, 140, 130, 100, 130, 140, 145, 103, 145, 140, 130, 106, 140, 150, 160];
+  const bars = lows.map(l => ({ t: 0, o: l + 10, h: l + 30, l, c: l + 15, v: 0 }));
+
+  const support = findTrendLine(bars, "low");
+  assert.ok(support, "support line found");
+  assert.strictEqual(support.p1.i, 3);
+  assert.strictEqual(support.p2.i, 11, "ties broken toward the more recent (larger index) point");
+  assert.strictEqual(support.touches, 1, "the middle swing low (i=7) touches this line");
+  assert.ok(Math.abs(support.valueAt(7) - 103) < 1e-9);
+}
+
+// --- trend lines: best-fit selection over 3 perfectly colinear swing highs ---
+{
+  // Dedicated peaks fixture (NOT the dip fixture shifted by a constant — shifting
+  // preserves local MINIMA, not maxima, so it would never produce swing highs).
+  // Swing highs occur at exactly i=3 (100), i=7 (103), i=11 (106) — colinear.
+  const highs = [50, 60, 70, 100, 70, 60, 65, 103, 65, 60, 70, 106, 60, 50, 40];
+  const bars = highs.map(h => ({ t: 0, o: h - 20, h, l: h - 30, c: h - 15, v: 0 }));
+
+  const { resistance } = findTrendLines(bars);
+  assert.ok(resistance, "resistance line found");
+  assert.strictEqual(resistance.p1.i, 3);
+  assert.strictEqual(resistance.p2.i, 11);
+  assert.strictEqual(resistance.touches, 1);
+}
+
+// --- trend lines: a candidate invalidated by a close breaking through must be rejected ---
+{
+  // Exactly 2 swing lows (i=2 -> 100, i=7 -> 120), the only possible candidate.
+  // bars[4].c is set to 90, well below the line's value at i=4 (108) — this
+  // must disqualify the only candidate, so the result is null.
+  const l = [150, 130, 100, 130, 115, 125, 128, 120, 140, 150];
+  const c = [160, 140, 110, 140, 90, 128, 132, 130, 150, 160];
+  const h = [170, 150, 120, 150, 135, 138, 142, 140, 160, 170];
+  const o = [165, 145, 115, 145, 120, 123, 127, 125, 155, 165];
+  const bars = l.map((v, i) => ({ t: 0, o: o[i], h: h[i], l: v, c: c[i], v: 0 }));
+
+  const support = findTrendLine(bars, "low");
+  assert.strictEqual(support, null, "the only candidate line is broken by bars[4].c, so no valid line exists");
+}
+
+// --- too few bars/swing points -> null ---
+{
+  const bars = [{ t: 0, o: 100, h: 101, l: 99, c: 100, v: 0 }];
+  assert.strictEqual(findTrendLine(bars, "low"), null);
 }
 
 console.log("web metrics (bar aggregation) tests passed ✔");

@@ -76,3 +76,80 @@ export function paginate(list, page, pageSize) {
 export function pageCount(listLength, pageSize) {
   return Math.max(1, Math.ceil(listLength / pageSize));
 }
+
+function findSwingPoints(bars, kind, window) {
+  const field = kind === "high" ? "h" : "l";
+  const points = [];
+  for (let i = window; i < bars.length - window; i++) {
+    const v = bars[i][field];
+    let isSwing = true;
+    for (let k = 1; k <= window; k++) {
+      const left = bars[i - k][field], right = bars[i + k][field];
+      const ok = kind === "high" ? (v > left && v > right) : (v < left && v < right);
+      if (!ok) { isSwing = false; break; }
+    }
+    if (isSwing) points.push({ i, v });
+  }
+  return points;
+}
+
+function lineValueAt(p1, p2, i) {
+  const slope = (p2.v - p1.v) / (p2.i - p1.i);
+  return p1.v + slope * (i - p1.i);
+}
+
+function scoreCandidate(p1, p2, points, tolerancePct) {
+  let touches = 0;
+  for (const p of points) {
+    if (p === p1 || p === p2) continue;
+    const expected = lineValueAt(p1, p2, p.i);
+    if (expected > 0 && Math.abs(p.v - expected) / expected <= tolerancePct) touches++;
+  }
+  return touches;
+}
+
+function isValidCandidate(p1, p2, bars, kind, tolerancePct) {
+  const startI = Math.min(p1.i, p2.i);
+  for (let i = startI; i < bars.length; i++) {
+    const expected = lineValueAt(p1, p2, i);
+    const close = bars[i].c;
+    if (kind === "high") {
+      if (close > expected * (1 + tolerancePct)) return false;
+    } else {
+      if (close < expected * (1 - tolerancePct)) return false;
+    }
+  }
+  return true;
+}
+
+export function findTrendLine(bars, kind, { window = 2, tolerancePct = 0.0015 } = {}) {
+  const points = findSwingPoints(bars, kind, window);
+  if (points.length < 2) return null;
+
+  let best = null;
+  for (let a = 0; a < points.length; a++) {
+    for (let b = a + 1; b < points.length; b++) {
+      const p1 = points[a], p2 = points[b];
+      if (!isValidCandidate(p1, p2, bars, kind, tolerancePct)) continue;
+      const score = scoreCandidate(p1, p2, points, tolerancePct);
+      if (!best || score > best.score || (score === best.score && p2.i > best.p2.i)) {
+        best = { p1, p2, score };
+      }
+    }
+  }
+  if (!best) return null;
+
+  return {
+    p1: best.p1,
+    p2: best.p2,
+    touches: best.score,
+    valueAt: i => lineValueAt(best.p1, best.p2, i)
+  };
+}
+
+export function findTrendLines(bars, opts) {
+  return {
+    resistance: findTrendLine(bars, "high", opts),
+    support: findTrendLine(bars, "low", opts)
+  };
+}
