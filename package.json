@@ -9,7 +9,13 @@
     "test": "node test/metrics.test.js"
   },
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "pino": "^9.5.0",
+    "ioredis": "^5.4.1",
+    "better-sqlite3": "^11.5.0"
+  },
+  "devDependencies": {
+    "ioredis-mock": "^8.9.0"
   },
   "engines": { "node": ">=18" }
 }
