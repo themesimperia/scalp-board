@@ -60,7 +60,9 @@ export function selectCoins(coins, opts = {}) {
   if (searchQ) list = list.filter(c => c.s.includes(searchQ));
   list = list.slice().sort((a, b) => {
     if (sortKey === "s") return sortDir * (a.s < b.s ? -1 : a.s > b.s ? 1 : 0);
-    const va = a[sortKey] ?? -1e18, vb = b[sortKey] ?? -1e18;
+    const va = a[sortKey], vb = b[sortKey];
+    const am = va == null, bm = vb == null;
+    if (am || bm) return am && bm ? 0 : am ? 1 : -1;
     return sortDir * (va - vb);
   });
   return list;

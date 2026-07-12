@@ -118,6 +118,18 @@ import { createBarAggregator, natr, avgRange, selectCoins, paginate, pageCount }
   // does not mutate input
   selectCoins(coins, { sortKey: "s", sortDir: 1 });
   assert.strictEqual(coins[0].s, "BTC", "original array order untouched");
+
+  // missing sort-key values always sort last, regardless of sortDir
+  const withMissing = [
+    { s: "A", v: 1e9, c: 1.5 },
+    { s: "B", v: 1e9 }, // missing .c
+    { s: "C", v: 1e9, c: -2 }
+  ];
+  out = selectCoins(withMissing, { sortKey: "c", sortDir: 1 });
+  assert.deepStrictEqual(out.map(c => c.s), ["C", "A", "B"], "ascending: missing value (B) sorts last");
+
+  out = selectCoins(withMissing, { sortKey: "c", sortDir: -1 });
+  assert.deepStrictEqual(out.map(c => c.s), ["A", "C", "B"], "descending: missing value (B) still sorts last");
 }
 
 // --- paginate / pageCount ---
