@@ -8,8 +8,10 @@
 TapeBoard's current web UI (`web/index.html`) is a single-file app with three tab
 views: a sortable table Screener, a bubble-lane Density map, and an Alerts manager.
 The user wants to replace the Screener with a "board view" modeled on a reference
-screenshot: a paginated grid of live mini candlestick charts (one per ticker) on
-the left, with a sidebar on the right (Coin List / Density Map / Listings panels).
+screenshot: a paginated grid of live mini candlestick charts (one per ticker), with
+a collapsible panel (Coin List / Density Map / Listings) on the **left** and the
+chart grid on the **right** — the reverse of the reference screenshot's own layout,
+per explicit user preference.
 
 This works against **today's single-process server** (`server/index.js` +
 `server/core/*`), not the future microservice split described in
@@ -21,11 +23,12 @@ service is eventually built.
 ## Goals
 
 1. Replace the Screener tab with a paginated grid of live mini candlestick charts.
-2. Add a right sidebar: Coin List, Density Map (re-laid-out), Listings feed.
+2. Add a collapsible left panel: Coin List, Density Map (re-laid-out), Listings feed.
 3. Add multi-color ticker tagging (extends today's single-star watchlist).
 4. Add an on-demand, per-symbol, arbitrary-period NATR/Range control.
-5. Keep the existing Alerts tab unchanged.
-6. Keep the project's zero-build-step, minimal-dependency philosophy.
+5. Add support/resistance trend lines to each chart panel.
+6. Keep the existing Alerts tab unchanged.
+7. Keep the project's zero-build-step, minimal-dependency philosophy.
 
 ## Non-goals
 
@@ -41,9 +44,10 @@ service is eventually built.
 Top-level nav becomes two tabs: **Board** (new default) and **Alerts** (existing,
 unchanged). Board is a two-column layout:
 
-- **Left (majority width):** paginated grid of live mini-chart panels.
-- **Right (fixed ~320px sidebar):** three stacked panels — Coin List, Density Map,
-  Listings.
+- **Left (fixed ~320px, collapsible):** three stacked panels — Coin List, Density
+  Map, Listings. A toggle button collapses/hides this whole column, and the chart
+  grid reflows to reclaim the freed width. Expanded by default.
+- **Right (majority width):** paginated grid of live mini-chart panels.
 
 The top bar keeps today's search / min-volume / watchlist controls, plus new
 Board-specific controls (below).
@@ -88,11 +92,34 @@ existing zero-JS-dependency style. Each grid cell:
   some threshold). This is a best-effort read of the reference screenshot's
   small corner dot; confirmed with the user as the intended meaning over
   alternatives (alert-armed indicator, price-direction indicator).
+- **Support/resistance trend lines** (best-fit selection algorithm):
+  1. **Pivot detection:** a bar is a swing high if its high exceeds the highs of
+     the 2 bars on each side within the visible bar window (mirrored for swing
+     lows).
+  2. **Candidate lines:** every pair of swing highs forms a candidate resistance
+     line (straight line through those two points, extended to the chart's right
+     edge). Every pair of swing lows forms a candidate support line.
+  3. **Scoring:** each candidate's touch count = how many *other* swing highs
+     (or lows, for support) fall within a small tolerance (~0.15% of price) of
+     the line's value at their bar index.
+  4. **Validity filter:** a candidate is disqualified if any bar's close breaks
+     meaningfully through it (resistance: a close above the line between/after
+     its defining points; support: a close below).
+  5. **Winner:** the valid candidate with the highest touch count (ties broken
+     toward the more recent pair) is drawn as the resistance line; the same
+     process independently picks the support line.
+  6. Recomputed when bars close, not on every tick (trend lines shouldn't jitter
+     in real time). Omitted if too few swing points exist yet for a symbol.
+  - This is a real pairwise best-fit selection (not just connecting the 2 most
+    recent pivots) but stays O(n²) over a small n (swing-point counts in a small
+    chart window are naturally in the single-to-low-double digits), so it's
+    cheap even across many simultaneously-rendering panels.
 
 ## 4. Grid, Pagination & Top Bar
 
-- **Grid density:** configurable panels-per-page (default 3×3=9; other options
-  e.g. 2×2, 4×3), via a small grid-icon control.
+- **Grid density:** fixed 3-column layout, selectable row count of 1/2/3 (3, 6,
+  or 9 panels total per page), via a small grid-icon control — matches the
+  reference screenshot's "3/6/9 windows" exactly.
 - **Sort & filter:** reuses the exact sort-key/search/min-volume/watchlist state
   the table view already has — the grid is a different rendering of the same
   filtered/sorted list, sliced into pages instead of table rows.
@@ -189,10 +216,13 @@ Matching the project's existing plain-`node:assert`, no-framework style:
 
 ## Open Items for the Implementation Plan
 
-- Exact grid-density preset list and default (3×3 confirmed as default; other
-  options TBD at plan time).
+- Grid density is finalized: fixed 3 columns, 1/2/3 rows (3/6/9 panels), default
+  9. No further decision needed here.
 - Exact color palette for tags (beyond the 3 shown in the reference: red/green/
   purple) and the popover UI for assigning them.
 - Exact thresholds for Density Map's Large/Medium/Small buckets.
 - Auto-advance timer duration for "AUTO" mode (proposed ~8s, confirm at plan
   time).
+- Swing-point pivot window size (proposed 2 bars each side) and touch tolerance
+  (proposed ~0.15% of price) for the trend-line algorithm — reasonable defaults
+  proposed, confirm/tune at plan time or after first manual test.
