@@ -5,17 +5,20 @@
   "type": "module",
   "scripts": {
     "start": "node server/index.js",
-    "mock": "MOCK=1 node server/index.js",
+    "mock": "cross-env MOCK=1 node server/index.js",
     "test": "node test/metrics.test.js && node test/lib.channels.test.js && node test/lib.counters.test.js && node test/lib.logger.test.js && node test/lib.redis.test.js && node test/lib.health.test.js && node test/db.schema.test.js"
   },
   "dependencies": {
-    "ws": "^8.18.0",
-    "pino": "^9.5.0",
+    "better-sqlite3": "^12.11.1",
     "ioredis": "^5.4.1",
-    "better-sqlite3": "^12.11.1"
+    "pino": "^9.5.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "ioredis-mock": "^8.9.0"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
