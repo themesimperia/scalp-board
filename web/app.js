@@ -148,8 +148,53 @@ function renderScreener(){
 }
 
 /* ---------- board grid ---------- */
+const TAG_COLORS = ["red", "green", "purple"];
+const tagMap = new Map(JSON.parse(localStorage.getItem("tb.tags") || "[]"));
+if (!tagMap.size) {
+  for (const sym of watch) tagMap.set(sym, "green"); // migrate the existing single-star watchlist
+}
+let tagFilter = "all";
+
+function saveTags() { localStorage.setItem("tb.tags", JSON.stringify([...tagMap])); }
+
 function boardOpts() {
-  return { minVol, searchQ, sortKey, sortDir, tagFilter: "all", tags: new Map() }; // Task 5 wires real tags
+  return { minVol, searchQ, sortKey, sortDir, tagFilter, tags: tagMap };
+}
+
+$("tagPills").addEventListener("click", e => {
+  const btn = e.target.closest(".tagPill");
+  if (!btn) return;
+  tagFilter = btn.dataset.tag;
+  [...$("tagPills").children].forEach(b => b.classList.toggle("on", b === btn));
+  renderBoardGrid();
+  renderCoinList();
+});
+
+function openTagPopover(anchorEl, sym) {
+  document.querySelector(".tagPopover")?.remove();
+  const pop = document.createElement("div");
+  pop.className = "tagPopover";
+  const rect = anchorEl.getBoundingClientRect();
+  pop.style.left = rect.left + "px";
+  pop.style.top = (rect.bottom + 4) + "px";
+  pop.innerHTML =
+    `<button data-c="" style="background:transparent" title="Clear"></button>` +
+    TAG_COLORS.map(c => `<button data-c="${c}" style="background:${
+      c === "red" ? "var(--down)" : c === "green" ? "var(--up)" : "#a463f2"
+    }"></button>`).join("");
+  pop.addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    if (b.dataset.c) tagMap.set(sym, b.dataset.c); else tagMap.delete(sym);
+    saveTags();
+    pop.remove();
+    renderBoardGrid();
+    renderCoinList();
+  });
+  document.body.appendChild(pop);
+  setTimeout(() => document.addEventListener("click", function close(e) {
+    if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener("click", close); }
+  }), 0);
 }
 
 function feedAggregator(list, ts) {
@@ -170,9 +215,10 @@ function makePanel(sym) {
   const el = document.createElement("div");
   el.className = "panel";
   el.innerHTML =
-    `<div class="panelHead"><span class="freshDot"></span><span class="sym"></span>` +
+    `<div class="panelHead"><span class="freshDot"></span><span class="sym" style="cursor:pointer"></span>` +
     `<span class="tag"></span><span class="spacer"></span><span class="chg"></span></div>` +
     `<canvas></canvas>`;
+  el.querySelector(".sym").onclick = e => openTagPopover(e.target, sym);
   return { el, canvas: el.querySelector("canvas") };
 }
 
@@ -203,6 +249,7 @@ function renderBoardGrid() {
     const chgEl = p.el.querySelector(".chg");
     chgEl.textContent = (c.c > 0 ? "+" : "") + c.c.toFixed(1) + "%";
     chgEl.className = "chg " + (c.c >= 0 ? "up" : "down");
+    p.el.style.borderColor = tagMap.has(c.s) ? `var(--${tagMap.get(c.s) === "green" ? "up" : tagMap.get(c.s) === "red" ? "down" : "accent"})` : "";
     const stale = (Date.now() - (lastTickAt.get(c.s) ?? 0)) > 5000;
     p.el.querySelector(".freshDot").classList.toggle("stale", stale);
     drawPanelFor(c.s, c.l);
