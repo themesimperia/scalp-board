@@ -1,3 +1,6 @@
+import { createBarAggregator, selectCoins, paginate, pageCount, findTrendLines } from "./lib/metrics.js";
+import { drawPanel } from "./lib/chart.js";
+
 const $ = id => document.getElementById(id);
 const EX_TAG = { binance:"BI-F", bybit:"BY-F", okx:"OK-F", mock:"SIM" };
 
@@ -7,6 +10,16 @@ let armedAlerts = [];           // [{sym, level, side}]
 let walls = [];
 let sortKey = "v", sortDir = -1, searchQ = "", minVol = 10_000_000, wlOnly = false;
 const watch = new Set(JSON.parse(localStorage.getItem("tb.watch") || "[]"));
+
+const TIMEFRAMES = { "1M": 60_000, "5M": 300_000, "15M": 900_000 };
+let timeframe = "5M";
+let aggregator = createBarAggregator(TIMEFRAMES[timeframe]);
+const trendLinesBySym = new Map();   // symbol -> {resistance, support}
+const barCountBySym = new Map();     // symbol -> last-seen bar count (to know when a bar closed)
+const lastTickAt = new Map();        // symbol -> ts, for the freshness dot
+let gridDensity = 9;                 // 3 / 6 / 9, Task 7 adds the selector
+let gridPage = 0;
+const panelEls = new Map();          // symbol -> {el, canvas}
 
 /* ---------- formatting ---------- */
 function fmtPx(p){ if(p>=1000) return p.toLocaleString("en-US",{maximumFractionDigits:1}); if(p>=1) return p.toLocaleString("en-US",{maximumFractionDigits:4}); return p.toPrecision(4); }
@@ -24,6 +37,8 @@ function connect(){
       coins = m.coins; renderStatus(m.status);
       $("klAge").textContent = m.klineTs ? Math.round((Date.now()-m.klineTs)/1000)+"s ago" : "loading…";
       renderScreener();
+      feedAggregator(coins, Date.now());
+      renderBoardGrid();
     } else if(m.t === "hello"){
       armedAlerts = m.alerts || []; walls = m.walls || []; renderStatus(m.status);
       renderArmed(); renderDensity();
@@ -126,6 +141,70 @@ function renderScreener(){
     r.tds[8].firstChild.classList.toggle("armed", armedSyms.has(c.s));
   }
   while(node){ const nx = node.nextSibling; tbody.removeChild(node); node = nx; }
+}
+
+/* ---------- board grid ---------- */
+function boardOpts() {
+  return { minVol, searchQ, sortKey, sortDir, tagFilter: "all", tags: new Map() }; // Task 5 wires real tags
+}
+
+function feedAggregator(list, ts) {
+  for (const c of list) {
+    aggregator.addTick(c.s, ts, c.l, 0);
+    lastTickAt.set(c.s, ts);
+    const bars = aggregator.getBars(c.s);
+    const prevCount = barCountBySym.get(c.s) ?? 0;
+    if (bars.length !== prevCount) {
+      barCountBySym.set(c.s, bars.length);
+      trendLinesBySym.set(c.s, findTrendLines(bars));
+    }
+  }
+}
+
+function makePanel(sym) {
+  const el = document.createElement("div");
+  el.className = "panel";
+  el.innerHTML =
+    `<div class="panelHead"><span class="freshDot"></span><span class="sym"></span>` +
+    `<span class="tag"></span><span class="spacer"></span><span class="chg"></span></div>` +
+    `<canvas></canvas>`;
+  return { el, canvas: el.querySelector("canvas") };
+}
+
+function drawPanelFor(sym, price) {
+  const p = panelEls.get(sym);
+  if (!p) return;
+  const rect = p.canvas.getBoundingClientRect();
+  const w = Math.round(rect.width), h = Math.round(rect.height);
+  if (w > 0 && (p.canvas.width !== w || p.canvas.height !== h)) { p.canvas.width = w; p.canvas.height = h; }
+  drawPanel(p.canvas, { bars: aggregator.getBars(sym), price, symbol: sym, trendLines: trendLinesBySym.get(sym) });
+}
+
+function renderBoardGrid() {
+  const list = selectCoins(coins, boardOpts());
+  const pages = pageCount(list.length, gridDensity);
+  gridPage = Math.min(gridPage, pages - 1);
+  const pageList = paginate(list, gridPage, gridDensity);
+  const grid = $("boardGrid");
+
+  const seen = new Set();
+  for (const c of pageList) {
+    seen.add(c.s);
+    let p = panelEls.get(c.s);
+    if (!p) { p = makePanel(c.s); panelEls.set(c.s, p); }
+    grid.appendChild(p.el);
+    p.el.querySelector(".sym").textContent = c.s;
+    p.el.querySelector(".tag").textContent = EX_TAG[c.x] || c.x;
+    const chgEl = p.el.querySelector(".chg");
+    chgEl.textContent = (c.c > 0 ? "+" : "") + c.c.toFixed(1) + "%";
+    chgEl.className = "chg " + (c.c >= 0 ? "up" : "down");
+    const stale = (Date.now() - (lastTickAt.get(c.s) ?? 0)) > 5000;
+    p.el.querySelector(".freshDot").classList.toggle("stale", stale);
+    drawPanelFor(c.s, c.l);
+  }
+  for (const [sym, p] of panelEls) {
+    if (!seen.has(sym)) { p.el.remove(); panelEls.delete(sym); }
+  }
 }
 
 /* ---------- density ---------- */
