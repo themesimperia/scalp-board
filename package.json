@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server/index.js",
     "mock": "MOCK=1 node server/index.js",
-    "test": "node test/metrics.test.js"
+    "test": "node test/metrics.test.js && node test/lib.channels.test.js"
   },
   "dependencies": {
     "ws": "^8.18.0",
