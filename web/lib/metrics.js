@@ -52,3 +52,25 @@ export function avgRange(candles) {
   }
   return n ? s / n : null;
 }
+
+export function selectCoins(coins, opts = {}) {
+  const { minVol = 0, searchQ = "", tagFilter = "all", tags = new Map(), sortKey = "v", sortDir = -1 } = opts;
+  let list = coins.filter(c => c.v >= minVol);
+  if (tagFilter !== "all") list = list.filter(c => tags.get(c.s) === tagFilter);
+  if (searchQ) list = list.filter(c => c.s.includes(searchQ));
+  list = list.slice().sort((a, b) => {
+    if (sortKey === "s") return sortDir * (a.s < b.s ? -1 : a.s > b.s ? 1 : 0);
+    const va = a[sortKey] ?? -1e18, vb = b[sortKey] ?? -1e18;
+    return sortDir * (va - vb);
+  });
+  return list;
+}
+
+export function paginate(list, page, pageSize) {
+  const start = page * pageSize;
+  return list.slice(start, start + pageSize);
+}
+
+export function pageCount(listLength, pageSize) {
+  return Math.max(1, Math.ceil(listLength / pageSize));
+}

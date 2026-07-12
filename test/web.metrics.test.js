@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { createBarAggregator, natr, avgRange } from "../web/lib/metrics.js";
+import { createBarAggregator, natr, avgRange, selectCoins, paginate, pageCount } from "../web/lib/metrics.js";
 
 // --- single tick creates one bar ---
 {
@@ -83,6 +83,52 @@ import { createBarAggregator, natr, avgRange } from "../web/lib/metrics.js";
 
   assert.ok(Math.abs(avgRange([{ h: 101, l: 100, c: 100.5 }]) - 1) < 1e-9, "1% range");
   assert.strictEqual(avgRange([]), null);
+}
+
+// --- selectCoins: filter + sort ---
+{
+  const coins = [
+    { s: "BTC", v: 5e9, c: 1.2 },
+    { s: "ETH", v: 2e9, c: -0.5 },
+    { s: "SOL", v: 8e8, c: 3.1 },
+    { s: "DOGE", v: 1e6, c: 0.1 }
+  ];
+
+  // minVol filter
+  let out = selectCoins(coins, { minVol: 1e9 });
+  assert.deepStrictEqual(out.map(c => c.s).sort(), ["BTC", "ETH"]);
+
+  // search filter
+  out = selectCoins(coins, { searchQ: "SO" });
+  assert.deepStrictEqual(out.map(c => c.s), ["SOL"]);
+
+  // sort by volume descending (default)
+  out = selectCoins(coins, {});
+  assert.deepStrictEqual(out.map(c => c.s), ["BTC", "ETH", "SOL", "DOGE"]);
+
+  // sort by symbol ascending
+  out = selectCoins(coins, { sortKey: "s", sortDir: 1 });
+  assert.deepStrictEqual(out.map(c => c.s), ["BTC", "DOGE", "ETH", "SOL"]);
+
+  // tag filter
+  const tags = new Map([["BTC", "green"], ["ETH", "red"]]);
+  out = selectCoins(coins, { tagFilter: "green", tags });
+  assert.deepStrictEqual(out.map(c => c.s), ["BTC"]);
+
+  // does not mutate input
+  selectCoins(coins, { sortKey: "s", sortDir: 1 });
+  assert.strictEqual(coins[0].s, "BTC", "original array order untouched");
+}
+
+// --- paginate / pageCount ---
+{
+  const list = [1, 2, 3, 4, 5, 6, 7];
+  assert.deepStrictEqual(paginate(list, 0, 3), [1, 2, 3]);
+  assert.deepStrictEqual(paginate(list, 1, 3), [4, 5, 6]);
+  assert.deepStrictEqual(paginate(list, 2, 3), [7]);
+  assert.strictEqual(pageCount(7, 3), 3);
+  assert.strictEqual(pageCount(9, 3), 3);
+  assert.strictEqual(pageCount(0, 3), 1, "zero items still reports 1 page");
 }
 
 console.log("web metrics (bar aggregation) tests passed ✔");
