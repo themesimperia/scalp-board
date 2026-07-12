@@ -10,7 +10,9 @@ export function createRedisClient(url, RedisImpl = Redis) {
     if (!set || !set.size) return;
     let payload;
     try { payload = JSON.parse(message); } catch { return; }
-    for (const fn of set) fn(payload);
+    for (const fn of set) {
+      try { fn(payload); } catch { /* swallow — a broken consumer must not take down message delivery for everyone else */ }
+    }
   });
 
   return {
@@ -22,7 +24,7 @@ export function createRedisClient(url, RedisImpl = Redis) {
       if (!set) {
         set = new Set();
         handlers.set(channel, set);
-        sub.subscribe(channel);
+        sub.subscribe(channel).catch(() => {});
       }
       set.add(handler);
     },
@@ -32,7 +34,7 @@ export function createRedisClient(url, RedisImpl = Redis) {
       set.delete(handler);
       if (!set.size) {
         handlers.delete(channel);
-        sub.unsubscribe(channel);
+        sub.unsubscribe(channel).catch(() => {});
       }
     },
     quit() {
