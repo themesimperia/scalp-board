@@ -1,5 +1,5 @@
 import assert from "node:assert";
-import { createBarAggregator } from "../web/lib/metrics.js";
+import { createBarAggregator, natr, avgRange } from "../web/lib/metrics.js";
 
 // --- single tick creates one bar ---
 {
@@ -69,6 +69,20 @@ import { createBarAggregator } from "../web/lib/metrics.js";
   agg.addTick("BTC", 1_000, 100);
   agg.reset();
   assert.deepStrictEqual(agg.getBars("BTC"), []);
+}
+
+// --- natr / avgRange: same behavior as server/core/metrics.js ---
+{
+  const flat = Array.from({ length: 15 }, () => ({ h: 100, l: 100, c: 100 }));
+  assert.strictEqual(natr(flat), 0, "flat candles -> NATR 0");
+
+  const oneRange = [{ h: 100, l: 100, c: 100 }, { h: 101, l: 99, c: 100 }];
+  assert.ok(Math.abs(natr(oneRange) - 2) < 1e-9, "single 2-wide candle on 100 -> 2%");
+  assert.strictEqual(natr([]), null);
+  assert.strictEqual(natr(null), null);
+
+  assert.ok(Math.abs(avgRange([{ h: 101, l: 100, c: 100.5 }]) - 1) < 1e-9, "1% range");
+  assert.strictEqual(avgRange([]), null);
 }
 
 console.log("web metrics (bar aggregation) tests passed ✔");

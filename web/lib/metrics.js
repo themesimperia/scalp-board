@@ -30,3 +30,25 @@ export function createBarAggregator(intervalMs, maxBars = 200) {
 
   return { addTick, getBars, reset };
 }
+
+export function natr(candles) {
+  if (!Array.isArray(candles) || candles.length < 2) return null;
+  let sum = 0, n = 0;
+  for (let i = 1; i < candles.length; i++) {
+    const { h, l } = candles[i], pc = candles[i - 1].c;
+    if (!(h > 0 && l > 0 && pc > 0)) continue;
+    sum += Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+    n++;
+  }
+  const last = candles[candles.length - 1].c;
+  return n && last > 0 ? (sum / n) / last * 100 : null;
+}
+
+export function avgRange(candles) {
+  if (!Array.isArray(candles) || !candles.length) return null;
+  let s = 0, n = 0;
+  for (const k of candles) {
+    if (k.l > 0 && k.h >= k.l) { s += (k.h - k.l) / k.l * 100; n++; }
+  }
+  return n ? s / n : null;
+}
