@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Node >=18, ESM only (`"type": "module"` in package.json) — no CommonJS `require`.
+- Node >=20, ESM only (`"type": "module"` in package.json) — no CommonJS `require`. (Raised from >=18 during Task 1: `better-sqlite3@^12.11.1` has no prebuilt binary for Node 18/19 on this machine's ABI.)
 - No test framework: tests are plain scripts using `node:assert`, run via `node test/<name>.test.js`, matching the existing `test/metrics.test.js` style exactly — no Jest/Mocha/Vitest.
 - Only four new dependencies total for this plan: `pino`, `ioredis`, `better-sqlite3` (runtime), `ioredis-mock` (dev/test only). Do not add anything else without going back to the spec.
 - Match existing code style: no comments except where something is genuinely non-obvious (see `server/core/market.js` for the house style — short doc comments above exported functions, nothing inline explaining the obvious).
