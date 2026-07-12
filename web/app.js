@@ -15,7 +15,7 @@ const TIMEFRAMES = { "1M": 60_000, "5M": 300_000, "15M": 900_000 };
 let timeframe = "5M";
 let aggregator = createBarAggregator(TIMEFRAMES[timeframe]);
 const trendLinesBySym = new Map();   // symbol -> {resistance, support}
-const barCountBySym = new Map();     // symbol -> last-seen bar count (to know when a bar closed)
+const lastBarTsBySym = new Map();    // symbol -> last-seen bar's open ts (to know when a bar closed)
 const lastTickAt = new Map();        // symbol -> ts, for the freshness dot
 let gridDensity = 9;                 // 3 / 6 / 9, Task 7 adds the selector
 let gridPage = 0;
@@ -153,9 +153,10 @@ function feedAggregator(list, ts) {
     aggregator.addTick(c.s, ts, c.l, 0);
     lastTickAt.set(c.s, ts);
     const bars = aggregator.getBars(c.s);
-    const prevCount = barCountBySym.get(c.s) ?? 0;
-    if (bars.length !== prevCount) {
-      barCountBySym.set(c.s, bars.length);
+    const latestBarT = bars.length ? bars[bars.length - 1].t : null;
+    const prevBarT = lastBarTsBySym.get(c.s);
+    if (latestBarT !== prevBarT) {
+      lastBarTsBySym.set(c.s, latestBarT);
       trendLinesBySym.set(c.s, findTrendLines(bars));
     }
   }
