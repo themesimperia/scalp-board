@@ -239,3 +239,8 @@ $("headRow").addEventListener("click", e => {
   [...$("headRow").children].forEach(x => x.classList.toggle("sorted", x === th));
   renderScreener();
 });
+
+$("sideToggle").onclick = () => {
+  $("boardSidebar").classList.toggle("collapsed");
+  $("sideToggle").textContent = $("boardSidebar").classList.contains("collapsed") ? "›" : "‹";
+};

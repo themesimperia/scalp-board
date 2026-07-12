@@ -102,6 +102,26 @@
 
   @media (max-width:720px){ .hide-m{display:none} input[type=text]{width:110px} }
   @media (prefers-reduced-motion:reduce){ td.f-up,td.f-down,.toast,.bubble{animation:none;transition:none} }
+
+  /* ---- board ---- */
+  .boardWrap{display:flex;height:100%}
+  .boardSidebar{width:280px;flex:none;overflow-y:auto;border-right:1px solid var(--line);background:var(--panel);transition:width .2s,opacity .2s}
+  .boardSidebar.collapsed{width:0;opacity:0;overflow:hidden;border-right:none}
+  .sideToggle{position:sticky;top:0;z-index:1;width:100%;background:var(--panel-2);border:none;border-bottom:1px solid var(--line);color:var(--muted);cursor:pointer;padding:6px;font-size:13px;font-family:var(--font-mono)}
+  .sideToggle:hover{color:var(--text)}
+  .sidePanel{border-bottom:1px solid var(--line)}
+  .sidePanel h3{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500;padding:10px 12px 6px}
+  .sideBody{padding:0 4px 8px;font-size:11px}
+  .boardGridWrap{flex:1;overflow-y:auto}
+  .boardGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;min-height:180px}
+  .panelHead{display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:11px;border-bottom:1px solid var(--line)}
+  .panelHead .sym{font-weight:700}
+  .panelHead .tag{font-size:9px;color:var(--muted)}
+  .panelHead .spacer{flex:1}
+  .freshDot{width:6px;height:6px;border-radius:50%;background:var(--up);flex:none}
+  .freshDot.stale{background:var(--down)}
+  .panel canvas{width:100%;flex:1;display:block;min-height:120px}
 </style>
 </head>
 <body>
@@ -110,7 +130,8 @@
   <div class="logo">tape<b>board</b></div>
   <div class="ex" id="exStatus"></div>
   <nav>
-    <button data-view="screener" class="on">Screener</button>
+    <button data-view="board" class="on">Board</button>
+    <button data-view="screener">Screener</button>
     <button data-view="density">Density</button>
     <button data-view="alerts">Alerts</button>
   </nav>
@@ -127,8 +148,32 @@
 </header>
 
 <main>
+  <!-- BOARD -->
+  <div class="view on" id="view-board">
+    <div class="boardWrap">
+      <aside class="boardSidebar" id="boardSidebar">
+        <button class="sideToggle" id="sideToggle" title="Collapse panel">‹</button>
+        <div class="sidePanel" id="panelCoinList">
+          <h3>Coin list</h3>
+          <div class="sideBody" id="coinListBody"></div>
+        </div>
+        <div class="sidePanel" id="panelDensityMap">
+          <h3>Density Map</h3>
+          <div class="sideBody" id="densityMapBody"></div>
+        </div>
+        <div class="sidePanel" id="panelListings">
+          <h3>Listings</h3>
+          <div class="sideBody" id="listingsBody"></div>
+        </div>
+      </aside>
+      <div class="boardGridWrap">
+        <div class="boardGrid" id="boardGrid"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- SCREENER -->
-  <div class="view on" id="view-screener">
+  <div class="view" id="view-screener">
     <table>
       <thead><tr id="headRow">
         <th style="cursor:default;width:30px"></th>
