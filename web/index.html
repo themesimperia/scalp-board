@@ -122,6 +122,15 @@
   .freshDot{width:6px;height:6px;border-radius:50%;background:var(--up);flex:none}
   .freshDot.stale{background:var(--down)}
   .panel canvas{width:100%;flex:1;display:block;min-height:120px}
+
+  .clRow{display:flex;justify-content:space-between;gap:6px;padding:4px 8px;font-size:11px;border-bottom:1px solid #0f1d21}
+  .clRow .s{font-weight:700}
+  .densityCols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:0 8px}
+  .densityCols h4{font-size:9px;text-transform:uppercase;color:var(--muted);text-align:center;padding:4px 0;grid-column:span 1}
+  .wallBadge{font-size:9px;padding:2px 5px;border-radius:4px;margin:2px 0;display:block;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wallBadge.bid{background:rgba(65,217,157,.15);color:var(--up)}
+  .wallBadge.ask{background:rgba(255,93,115,.15);color:var(--down)}
+  .listRow{display:flex;justify-content:space-between;gap:6px;padding:4px 8px;font-size:11px;border-bottom:1px solid #0f1d21}
 </style>
 </head>
 <body>

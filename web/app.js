@@ -38,17 +38,21 @@ function connect(){
       $("klAge").textContent = m.klineTs ? Math.round((Date.now()-m.klineTs)/1000)+"s ago" : "loading…";
       renderScreener();
       feedAggregator(coins, Date.now());
-      renderBoardGrid();
+      renderBoardGrid(); renderCoinList();
     } else if(m.t === "hello"){
       armedAlerts = m.alerts || []; walls = m.walls || []; renderStatus(m.status);
-      renderArmed(); renderDensity();
-      for(const a of (m.recent||[]).slice(-15)) feedItem(a, false);
+      renderArmed(); renderDensity(); renderDensityMap();
+      for(const a of (m.recent||[]).slice(-15)){
+        feedItem(a, false);
+        if(a.kind === "listing") renderListings(a);
+      }
     } else if(m.t === "density"){
-      walls = m.walls || []; renderDensity();
+      walls = m.walls || []; renderDensity(); renderDensityMap();
     } else if(m.t === "alerts"){
       armedAlerts = m.list || []; renderArmed(); renderScreener();
     } else if(m.t === "alert"){
       feedItem(m, true);
+      if(m.kind === "listing") renderListings(m);
     }
   };
   ws.onclose = () => setTimeout(connect, 2000);
@@ -243,6 +247,34 @@ function renderDensity(){
     `<td style="text-align:left" class="dim">${EX_TAG[w.ex]||w.ex}</td>`+
     `<td class="${w.side==="bid"?"side-b":"side-a"}">${w.side.toUpperCase()}</td>`+
     `<td>${fmtPx(w.price)}</td><td>${w.dist}%</td><td>$${fmtBig(w.usd)}</td></tr>`).join("");
+}
+
+/* ---------- sidebar panels ---------- */
+function renderCoinList() {
+  const list = selectCoins(coins, boardOpts()).slice(0, 100);
+  $("coinListBody").innerHTML = list.map(c =>
+    `<div class="clRow"><span class="s">${c.s}</span><span class="${c.c>=0?'up':'down'}">${(c.c>0?'+':'')+c.c.toFixed(1)}%</span><span class="dim">${fmtBig(c.v)}</span></div>`
+  ).join("") || `<div class="clRow dim">No coins match the current filters</div>`;
+}
+
+function renderDensityMap() {
+  const large = walls.filter(w => w.usd >= 1_000_000);
+  const medium = walls.filter(w => w.usd >= 300_000 && w.usd < 1_000_000);
+  const small = walls.filter(w => w.usd < 300_000);
+  const col = list => list.slice(0, 20).map(w =>
+    `<span class="wallBadge ${w.side}">${EX_TAG[w.ex]||w.ex} ${w.sym} ${fmtBig(w.usd)}</span>`
+  ).join("") || `<span class="dim" style="font-size:10px">none</span>`;
+  $("densityMapBody").innerHTML =
+    `<div class="densityCols"><h4>Large</h4><h4>Medium</h4><h4>Small</h4>` +
+    `<div>${col(large)}</div><div>${col(medium)}</div><div>${col(small)}</div></div>`;
+}
+
+const listingEvents = [];
+function renderListings(evt) {
+  if (evt) { listingEvents.unshift(evt); if (listingEvents.length > 30) listingEvents.pop(); }
+  $("listingsBody").innerHTML = listingEvents.map(e =>
+    `<div class="listRow"><span class="s">${e.sym}</span><span class="dim">${fmtTime(e.ts)}</span></div>`
+  ).join("") || `<div class="listRow dim">No new listings yet</div>`;
 }
 
 /* ---------- alerts ---------- */
