@@ -1,0 +1,15 @@
+{
+  "name": "tapeboard",
+  "version": "0.2.0",
+  "description": "Multi-exchange crypto scalping screener: unified feed, density map, alerts (Binance + Bybit + OKX)",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "mock": "MOCK=1 node server/index.js",
+    "test": "node test/metrics.test.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": { "node": ">=18" }
+}

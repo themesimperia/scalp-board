@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TapeBoard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Archivo:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a1214; --panel:#0e1a1d; --panel-2:#122126; --line:#1b2f35;
+    --text:#d9e6e4; --muted:#6e8a8c;
+    --up:#41d99d; --down:#ff5d73; --amber:#ffb454; --accent:#57cfc0;
+    --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+    --font-display:'Archivo',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:13px;overflow:hidden;display:flex;flex-direction:column}
+
+  header{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+  .logo{font-family:var(--font-display);font-weight:900;font-size:17px;letter-spacing:-.02em}
+  .logo b{color:var(--accent)}
+  .ex{display:flex;gap:10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .ex span{display:flex;align-items:center;gap:5px}
+  .dot{width:7px;height:7px;border-radius:50%;background:#3c5457;transition:background .3s}
+  .dot.live{background:var(--up);box-shadow:0 0 7px var(--up)}
+  .dot.down{background:var(--down)}
+  .spacer{flex:1}
+  nav{display:flex;gap:2px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:2px}
+  nav button{background:none;border:none;color:var(--muted);font-family:var(--font-mono);font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer}
+  nav button.on{background:var(--accent);color:#052a26;font-weight:700}
+  nav button:not(.on):hover{color:var(--text)}
+  input[type=text]{background:var(--panel-2);border:1px solid var(--line);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:7px 12px;border-radius:6px;width:170px;outline:none}
+  input[type=text]:focus{border-color:var(--accent)}
+  select{background:var(--panel-2);border:1px solid var(--line);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:7px 8px;border-radius:6px;outline:none}
+  .wlBtn{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);font-family:var(--font-mono);font-size:12px;padding:7px 12px;border-radius:6px;cursor:pointer}
+  .wlBtn.on{color:var(--amber);border-color:var(--amber)}
+
+  main{flex:1;overflow:hidden;position:relative}
+  .view{position:absolute;inset:0;overflow-y:auto;display:none}
+  .view.on{display:block}
+
+  /* ---- screener table ---- */
+  table{width:100%;border-collapse:collapse}
+  thead th{position:sticky;top:0;z-index:2;background:var(--panel);border-bottom:1px solid var(--line);padding:9px 13px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:right;cursor:pointer;user-select:none;white-space:nowrap}
+  thead th:first-child,thead th:nth-child(2){text-align:left}
+  thead th:hover{color:var(--text)}
+  thead th .sub{display:block;font-size:9px;color:#4a6265}
+  thead th.sorted{color:var(--accent)}
+  tbody td{padding:7px 13px;border-bottom:1px solid #0f1d21;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tbody td:first-child,tbody td:nth-child(2){text-align:left}
+  tbody tr:hover{background:var(--panel-2)}
+  .sym{font-weight:700}
+  .tag{font-size:9px;color:var(--muted);font-weight:400;letter-spacing:.05em}
+  .up{color:var(--up)} .down{color:var(--down)} .dim{color:var(--muted)}
+  @keyframes flashUp{0%{background:rgba(65,217,157,.22)}100%{background:transparent}}
+  @keyframes flashDown{0%{background:rgba(255,93,115,.22)}100%{background:transparent}}
+  td.f-up{animation:flashUp .7s ease-out} td.f-down{animation:flashDown .7s ease-out}
+  .heat{display:inline-block;height:4px;border-radius:2px;background:var(--accent);vertical-align:middle;margin-right:8px;min-width:2px;opacity:.85}
+  .heat.hot{background:var(--amber)} .heat.fire{background:var(--down)}
+  .star,.bell{cursor:pointer;color:#3c5457;padding:0 3px}
+  .star:hover{color:var(--amber)} .bell:hover{color:var(--amber)}
+  .star.on{color:var(--amber)} .bell.armed{color:var(--amber)}
+
+  /* ---- density ---- */
+  .denWrap{padding:18px 16px;max-width:1100px;margin:0 auto}
+  .denTitle{font-family:var(--font-display);font-weight:700;font-size:13px;letter-spacing:.02em;color:var(--muted);text-transform:uppercase;margin:6px 0 10px}
+  .lane{position:relative;height:150px;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:14px;overflow:hidden}
+  .lane .axis{position:absolute;bottom:4px;left:0;right:0;display:flex;justify-content:space-between;padding:0 10px;font-size:9px;color:#4a6265}
+  .lane .grid{position:absolute;top:0;bottom:16px;border-left:1px dashed #16292e}
+  .bubble{position:absolute;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:default;transform:translate(-50%,-50%);transition:left 1s,top 1s}
+  .bubble.ask{background:rgba(255,93,115,.16);border:1px solid var(--down);color:var(--down)}
+  .bubble.bid{background:rgba(65,217,157,.14);border:1px solid var(--up);color:var(--up)}
+  .denTable td{padding:6px 13px}
+  .side-b{color:var(--up)} .side-a{color:var(--down)}
+  .empty{padding:40px;text-align:center;color:var(--muted);font-size:12px}
+
+  /* ---- alerts view ---- */
+  .alWrap{padding:18px 16px;max-width:760px;margin:0 auto}
+  .alRow{display:flex;gap:8px;margin-bottom:16px}
+  .alRow input{flex:1}
+  .btn{background:var(--accent);color:#052a26;border:none;font-family:var(--font-mono);font-weight:700;font-size:12px;padding:8px 16px;border-radius:6px;cursor:pointer}
+  .btn:hover{filter:brightness(1.1)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px 0;margin-bottom:16px}
+  .card h3{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:10px 14px 6px;font-weight:500}
+  .item{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid #0f1d21;font-size:12px}
+  .item .k{font-size:9px;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
+  .k.price{background:rgba(255,180,84,.15);color:var(--amber)}
+  .k.impulse{background:rgba(87,207,192,.15);color:var(--accent)}
+  .k.listing{background:rgba(65,217,157,.15);color:var(--up)}
+  .item .del{margin-left:auto;cursor:pointer;color:var(--muted)} .item .del:hover{color:var(--down)}
+  .item time{margin-left:auto;color:#4a6265;font-size:10px}
+
+  footer{padding:7px 16px;border-top:1px solid var(--line);background:var(--panel);font-size:10px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+  footer b{color:var(--text);font-weight:500}
+
+  #toasts{position:fixed;right:16px;bottom:44px;display:flex;flex-direction:column;gap:8px;z-index:50}
+  .toast{background:var(--panel-2);border:1px solid var(--amber);border-radius:8px;padding:10px 14px;font-size:12px;box-shadow:0 6px 24px rgba(0,0,0,.5);animation:pop .25s ease-out;max-width:320px}
+  @keyframes pop{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+  .toast b{color:var(--amber)}
+
+  @media (max-width:720px){ .hide-m{display:none} input[type=text]{width:110px} }
+  @media (prefers-reduced-motion:reduce){ td.f-up,td.f-down,.toast,.bubble{animation:none;transition:none} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">tape<b>board</b></div>
+  <div class="ex" id="exStatus"></div>
+  <nav>
+    <button data-view="screener" class="on">Screener</button>
+    <button data-view="density">Density</button>
+    <button data-view="alerts">Alerts</button>
+  </nav>
+  <div class="spacer"></div>
+  <button class="wlBtn" id="wlToggle" title="Show watchlist only">★ Watchlist</button>
+  <input type="text" id="search" placeholder="Filter… ( / )" autocomplete="off">
+  <select id="minVol">
+    <option value="0">All volume</option>
+    <option value="10000000" selected>≥ $10M</option>
+    <option value="50000000">≥ $50M</option>
+    <option value="200000000">≥ $200M</option>
+    <option value="1000000000">≥ $1B</option>
+  </select>
+</header>
+
+<main>
+  <!-- SCREENER -->
+  <div class="view on" id="view-screener">
+    <table>
+      <thead><tr id="headRow">
+        <th style="cursor:default;width:30px"></th>
+        <th data-k="s">Ticker</th>
+        <th data-k="l">Price</th>
+        <th data-k="c">Change<span class="sub">24h %</span></th>
+        <th data-k="r" class="hide-m">Range<span class="sub">1m / 5</span></th>
+        <th data-k="n">NATR<span class="sub">5m / 14</span></th>
+        <th data-k="t" class="hide-m">Trades<span class="sub">24h</span></th>
+        <th data-k="v" class="sorted">Vol<span class="sub">24h</span></th>
+        <th style="cursor:default">⏰</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- DENSITY -->
+  <div class="view" id="view-density">
+    <div class="denWrap">
+      <div class="denTitle">Asks — sell walls above price</div>
+      <div class="lane" id="laneAsk"></div>
+      <div class="denTitle">Bids — buy walls below price</div>
+      <div class="lane" id="laneBid"></div>
+      <div class="denTitle">All detected walls</div>
+      <table class="denTable">
+        <thead><tr>
+          <th style="text-align:left">Coin</th><th style="text-align:left">Exchange</th>
+          <th>Side</th><th>Price</th><th>Distance</th><th>Size</th>
+        </tr></thead>
+        <tbody id="denBody"><tr><td colspan="6" class="empty">Scanning order books…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="view" id="view-alerts">
+    <div class="alWrap">
+      <div class="alRow">
+        <input type="text" id="alSym" placeholder="Ticker (e.g. BTC)" autocomplete="off">
+        <input type="text" id="alLevel" placeholder="Price level" autocomplete="off">
+        <button class="btn" id="alAdd">Set alert</button>
+      </div>
+      <div class="card"><h3>Armed price alerts</h3><div id="armed"><div class="item dim">None yet — set one above or via ⏰ in the screener.</div></div></div>
+      <div class="card"><h3>Alert feed — price · impulse · listings</h3><div id="feed"><div class="item dim">Waiting for events…</div></div></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span><b id="cnt">0</b> unified coins</span>
+  <span>walls <b id="wallCnt">0</b></span>
+  <span>klines <b id="klAge">—</b></span>
+  <span class="dim">unified feed: best source per coin wins · prototype, not investment advice</span>
+</footer>
+
+<div id="toasts"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const EX_TAG = { binance:"BI-F", bybit:"BY-F", okx:"OK-F", mock:"SIM" };
+
+let coins = [];                 // latest snapshot
+const prevPx = new Map();       // sym -> last price (for flashes)
+let armedAlerts = [];           // [{sym, level, side}]
+let walls = [];
+let sortKey = "v", sortDir = -1, searchQ = "", minVol = 10_000_000, wlOnly = false;
+const watch = new Set(JSON.parse(localStorage.getItem("tb.watch") || "[]"));
+
+/* ---------- formatting ---------- */
+function fmtPx(p){ if(p>=1000) return p.toLocaleString("en-US",{maximumFractionDigits:1}); if(p>=1) return p.toLocaleString("en-US",{maximumFractionDigits:4}); return p.toPrecision(4); }
+function fmtBig(n){ if(n==null) return "—"; if(n>=1e9) return (n/1e9).toFixed(n>=1e10?0:1)+"B"; if(n>=1e6) return (n/1e6).toFixed(0)+"M"; if(n>=1e3) return (n/1e3).toFixed(0)+"K"; return String(Math.round(n)); }
+function fmtTime(ts){ return new Date(ts).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
+
+/* ---------- websocket ---------- */
+let ws;
+function connect(){
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onmessage = ev => {
+    let m; try{ m = JSON.parse(ev.data); }catch{ return; }
+    if(m.t === "snap"){
+      coins = m.coins; renderStatus(m.status);
+      $("klAge").textContent = m.klineTs ? Math.round((Date.now()-m.klineTs)/1000)+"s ago" : "loading…";
+      renderScreener();
+    } else if(m.t === "hello"){
+      armedAlerts = m.alerts || []; walls = m.walls || []; renderStatus(m.status);
+      renderArmed(); renderDensity();
+      for(const a of (m.recent||[]).slice(-15)) feedItem(a, false);
+    } else if(m.t === "density"){
+      walls = m.walls || []; renderDensity();
+    } else if(m.t === "alerts"){
+      armedAlerts = m.list || []; renderArmed(); renderScreener();
+    } else if(m.t === "alert"){
+      feedItem(m, true);
+    }
+  };
+  ws.onclose = () => setTimeout(connect, 2000);
+}
+connect();
+
+function renderStatus(st){
+  if(!st) return;
+  $("exStatus").innerHTML = Object.entries(st)
+    .map(([ex,s]) => `<span><i class="dot ${s}"></i>${ex}</span>`).join("");
+}
+
+/* ---------- screener ---------- */
+const rowCache = new Map(); // sym -> {tr, tds, lastVals}
+function makeRow(sym){
+  const tr = document.createElement("tr");
+  tr.innerHTML =
+    `<td><span class="star" title="Watchlist">★</span></td>`+
+    `<td class="sym">${sym} <span class="tag"></span></td>`+
+    `<td></td><td></td><td class="hide-m"></td><td></td>`+
+    `<td class="hide-m dim"></td><td></td>`+
+    `<td><span class="bell" title="Set price alert">⏰</span></td>`;
+  tr.querySelector(".star").onclick = () => {
+    watch.has(sym) ? watch.delete(sym) : watch.add(sym);
+    localStorage.setItem("tb.watch", JSON.stringify([...watch]));
+    renderScreener();
+  };
+  tr.querySelector(".bell").onclick = () => {
+    const c = coins.find(x => x.s === sym);
+    const v = prompt(`Alert level for ${sym}${c ? " (last: "+fmtPx(c.l)+")" : ""}`, c ? fmtPx(c.l) : "");
+    if(v === null) return;
+    const level = parseFloat(String(v).replace(/,/g,""));
+    if(isFinite(level) && level > 0) sendAlertAdd(sym, level);
+  };
+  return { tr, tds: tr.querySelectorAll("td"), lastVals:{} };
+}
+function setCell(r, idx, txt, cls, flash){
+  const td = r.tds[idx];
+  if(r.lastVals[idx] !== txt){
+    td.textContent = txt;
+    const keep = td.classList.contains("hide-m") ? "hide-m " : "";
+    td.className = keep + (cls || "");
+    if(flash){ td.classList.remove("f-up","f-down"); void td.offsetWidth; td.classList.add(flash); }
+    r.lastVals[idx] = txt;
+  }
+}
+function heatHTML(natr){
+  if(natr==null) return `<span class="dim">—</span>`;
+  const w = Math.min(natr*18, 60);
+  const cls = natr>=2.5 ? "fire" : natr>=1.2 ? "hot" : "";
+  return `<span class="heat ${cls}" style="width:${w}px"></span>${natr.toFixed(1)}`;
+}
+function visible(){
+  let list = coins.filter(c => c.v >= minVol);
+  if(wlOnly) list = list.filter(c => watch.has(c.s));
+  if(searchQ) list = list.filter(c => c.s.includes(searchQ));
+  list.sort((a,b) => {
+    if(sortKey === "s") return sortDir * (a.s < b.s ? -1 : a.s > b.s ? 1 : 0);
+    const va = a[sortKey] ?? -1e18, vb = b[sortKey] ?? -1e18;
+    return sortDir * (va - vb);
+  });
+  return list.slice(0, 300);
+}
+function renderScreener(){
+  const list = visible();
+  $("cnt").textContent = coins.length;
+  const tbody = $("tbody");
+  let node = tbody.firstChild;
+  const armedSyms = new Set(armedAlerts.map(a => a.sym));
+  for(const c of list){
+    let r = rowCache.get(c.s);
+    if(!r){ r = makeRow(c.s); rowCache.set(c.s, r); }
+    if(r.tr !== node) tbody.insertBefore(r.tr, node); else node = node.nextSibling;
+
+    r.tds[0].firstChild.classList.toggle("on", watch.has(c.s));
+    const tagEl = r.tr.querySelector(".tag");
+    const tag = EX_TAG[c.x] || c.x;
+    if(tagEl.textContent !== tag) tagEl.textContent = tag;
+
+    const pv = prevPx.get(c.s);
+    const dir = pv == null ? null : c.l > pv ? "f-up" : c.l < pv ? "f-down" : null;
+    prevPx.set(c.s, c.l);
+
+    setCell(r, 2, fmtPx(c.l), "", dir);
+    setCell(r, 3, (c.c>0?"+":"")+c.c.toFixed(1), c.c>=0?"up":"down");
+    setCell(r, 4, c.r==null?"—":c.r.toFixed(1), c.r!=null && c.r>=1 ? "up":"dim");
+    if(r.lastVals.natr !== c.n){ r.tds[5].innerHTML = heatHTML(c.n); r.lastVals.natr = c.n; }
+    setCell(r, 6, fmtBig(c.t), "dim");
+    setCell(r, 7, fmtBig(c.v));
+    r.tds[8].firstChild.classList.toggle("armed", armedSyms.has(c.s));
+  }
+  while(node){ const nx = node.nextSibling; tbody.removeChild(node); node = nx; }
+}
+
+/* ---------- density ---------- */
+function renderDensity(){
+  $("wallCnt").textContent = walls.length;
+  const lanes = { ask: $("laneAsk"), bid: $("laneBid") };
+  for(const side of ["ask","bid"]){
+    const lane = lanes[side];
+    lane.innerHTML =
+      `<div class="grid" style="left:33.3%"></div><div class="grid" style="left:66.6%"></div>`+
+      `<div class="axis"><span>0%</span><span>1%</span><span>2%</span><span>3% from price</span></div>`;
+    const sideWalls = walls.filter(w => w.side === side).slice(0, 40);
+    const maxUsd = Math.max(...sideWalls.map(w => w.usd), 1);
+    for(const w of sideWalls){
+      const d = document.createElement("div");
+      const size = 18 + Math.sqrt(w.usd / maxUsd) * 42;
+      d.className = `bubble ${side}`;
+      d.style.width = d.style.height = size + "px";
+      d.style.left = Math.min(w.dist / 3 * 100, 98) + "%";
+      d.style.top = (18 + Math.random() * 55) + "%";
+      d.textContent = w.sym;
+      d.title = `${w.sym} · ${EX_TAG[w.ex]||w.ex} · ${w.side} ${fmtPx(w.price)} · $${fmtBig(w.usd)} · ${w.dist}% away`;
+      lane.appendChild(d);
+    }
+    if(!sideWalls.length){
+      const e = document.createElement("div");
+      e.className = "empty"; e.textContent = "No significant walls right now";
+      lane.appendChild(e);
+    }
+  }
+  const body = $("denBody");
+  if(!walls.length){ body.innerHTML = `<tr><td colspan="6" class="empty">Scanning order books…</td></tr>`; return; }
+  body.innerHTML = walls.slice(0, 60).map(w =>
+    `<tr><td style="text-align:left" class="sym">${w.sym}</td>`+
+    `<td style="text-align:left" class="dim">${EX_TAG[w.ex]||w.ex}</td>`+
+    `<td class="${w.side==="bid"?"side-b":"side-a"}">${w.side.toUpperCase()}</td>`+
+    `<td>${fmtPx(w.price)}</td><td>${w.dist}%</td><td>$${fmtBig(w.usd)}</td></tr>`).join("");
+}
+
+/* ---------- alerts ---------- */
+function sendAlertAdd(sym, level){
+  if(ws?.readyState === 1) ws.send(JSON.stringify({ t:"alert:add", sym, level }));
+  if(Notification && Notification.permission === "default") Notification.requestPermission();
+  toast(`Alert armed: <b>${sym}</b> @ ${fmtPx(level)}`);
+}
+function renderArmed(){
+  const el = $("armed");
+  if(!armedAlerts.length){ el.innerHTML = `<div class="item dim">None yet — set one above or via ⏰ in the screener.</div>`; return; }
+  el.innerHTML = "";
+  for(const a of armedAlerts){
+    const d = document.createElement("div");
+    d.className = "item";
+    d.innerHTML = `<span class="k price">price</span><b>${a.sym}</b> ${a.side === "above" ? "≥" : "≤"} ${fmtPx(a.level)} <span class="del" title="Remove">✕</span>`;
+    d.querySelector(".del").onclick = () => ws?.send(JSON.stringify({ t:"alert:del", sym:a.sym, level:a.level }));
+    el.appendChild(d);
+  }
+}
+function feedItem(evt, loud){
+  const feed = $("feed");
+  if(feed.firstChild?.classList?.contains("dim")) feed.innerHTML = "";
+  const d = document.createElement("div");
+  d.className = "item";
+  d.innerHTML = `<span class="k ${evt.kind}">${evt.kind}</span><span>${evt.msg}</span><time>${fmtTime(evt.ts)}</time>`;
+  feed.prepend(d);
+  while(feed.children.length > 40) feed.lastChild.remove();
+  if(loud){
+    toast(`<b>${evt.sym}</b> ${evt.msg}`); beep();
+    if(Notification?.permission === "granted") new Notification(`${evt.sym} — ${evt.kind}`, { body: evt.msg });
+  }
+}
+$("alAdd").onclick = () => {
+  const sym = $("alSym").value.trim().toUpperCase();
+  const level = parseFloat($("alLevel").value.replace(/,/g,""));
+  if(sym && isFinite(level) && level > 0){ sendAlertAdd(sym, level); $("alLevel").value = ""; }
+};
+
+/* ---------- toast + beep ---------- */
+function toast(html){
+  const el = document.createElement("div");
+  el.className = "toast"; el.innerHTML = html;
+  $("toasts").appendChild(el);
+  setTimeout(() => el.remove(), 8000);
+}
+let audioCtx;
+function beep(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = 880; o.connect(g); g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(.15, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001, audioCtx.currentTime + .4);
+    o.start(); o.stop(audioCtx.currentTime + .4);
+  }catch{}
+}
+
+/* ---------- controls ---------- */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "view-" + b.dataset.view));
+});
+$("wlToggle").onclick = () => { wlOnly = !wlOnly; $("wlToggle").classList.toggle("on", wlOnly); renderScreener(); };
+$("search").addEventListener("input", e => { searchQ = e.target.value.trim().toUpperCase(); renderScreener(); });
+$("minVol").addEventListener("change", e => { minVol = +e.target.value; renderScreener(); });
+document.addEventListener("keydown", e => {
+  if(e.key === "/" && document.activeElement !== $("search")){ e.preventDefault(); $("search").focus(); }
+});
+$("headRow").addEventListener("click", e => {
+  const th = e.target.closest("th"); if(!th || !th.dataset.k) return;
+  const k = th.dataset.k;
+  if(sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = k === "s" ? 1 : -1; }
+  [...$("headRow").children].forEach(x => x.classList.toggle("sorted", x === th));
+  renderScreener();
+});
+</script>
+</body>
+</html>
