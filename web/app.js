@@ -386,9 +386,19 @@ function renderDensity(){
 function renderCoinList() {
   if (!$("view-board").classList.contains("on")) return; // sidebar lives inside the Board view — skip when it's not visible
   const list = selectCoins(coins, boardOpts()).slice(0, 100);
-  $("coinListBody").innerHTML = list.map(c =>
-    `<div class="clRow"><span class="s">${c.s}</span><span class="${c.c>=0?'up':'down'}">${(c.c>0?'+':'')+c.c.toFixed(1)}%</span><span class="dim">${fmtBig(c.v)}</span></div>`
-  ).join("") || `<div class="clRow dim">No coins match the current filters</div>`;
+  $("coinListBody").innerHTML = list.map(c => {
+    const tagColor = tagMap.get(c.s);
+    const borderVar = tagColor === "green" ? "--up" : tagColor === "red" ? "--down" : tagColor === "purple" ? "--tag-purple" : null;
+    const style = borderVar ? ` style="border-left-color:var(${borderVar})"` : "";
+    return `<div class="clRow" data-sym="${c.s}"${style}>` +
+      `<span class="s">${c.s}</span>` +
+      `<span class="${c.c >= 0 ? 'up' : 'down'}">${(c.c > 0 ? '+' : '') + c.c.toFixed(1)}</span>` +
+      `<span>${c.r == null ? "—" : c.r.toFixed(1)}</span>` +
+      `<span>${c.n == null ? "—" : c.n.toFixed(1)}</span>` +
+      `<span class="dim">${fmtBig(c.t)}</span>` +
+      `<span class="dim">${fmtBig(c.v)}</span>` +
+    `</div>`;
+  }).join("") || `<div class="clRow dim">No coins match the current filters</div>`;
 }
 
 function renderDensityMap() {
