@@ -154,10 +154,18 @@
   .detailHead{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--line)}
   .detailHead .sym{font-weight:700;font-size:14px}
   .detailHead .spacer{flex:1}
-  .detailGrid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;padding:8px;min-height:0}
-  .detailPanel{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-height:0}
-  .detailPanelHead{padding:6px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line)}
+  .detailGrid{flex:1;display:flex;gap:8px;padding:8px;min-height:0}
+  .detailCol{flex:1;display:flex;flex-direction:column;min-height:0;min-width:0}
+  .detailPanel{flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:8px;min-height:32px;overflow:hidden}
+  .detailPanel.collapsed{flex:0 0 auto}
+  .detailPanel.collapsed canvas{display:none}
+  .detailPanelHead{display:flex;align-items:center;gap:6px;padding:6px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line);flex-shrink:0}
+  .detailPanelHead .detailMin{margin-left:auto;background:none;border:1px solid var(--line);color:var(--muted);border-radius:4px;width:18px;height:18px;line-height:1;cursor:pointer;font-family:var(--font-mono);padding:0}
+  .detailPanelHead .detailMin:hover{color:var(--text);border-color:var(--accent)}
   .detailPanel canvas{flex:1;width:100%;display:block;min-height:0}
+  .detailDivider{flex-shrink:0;height:9px;margin:-1px 0;cursor:ns-resize;position:relative;z-index:1}
+  .detailDivider::after{content:"";position:absolute;left:8px;right:8px;top:4px;height:2px;background:var(--line);border-radius:1px}
+  .detailDivider:hover::after,.detailDivider.dragging::after{background:var(--accent)}
 </style>
 </head>
 <body>
@@ -246,10 +254,16 @@
             <button class="wlBtn" id="detailClose">✕ Close</button>
           </div>
           <div class="detailGrid" id="detailGrid">
-            <div class="detailPanel" data-tf="1m"><div class="detailPanelHead">1m</div><canvas></canvas></div>
-            <div class="detailPanel" data-tf="5m"><div class="detailPanelHead">5m</div><canvas></canvas></div>
-            <div class="detailPanel" data-tf="1h"><div class="detailPanelHead">1h</div><canvas></canvas></div>
-            <div class="detailPanel" data-tf="1d"><div class="detailPanelHead">1d</div><canvas></canvas></div>
+            <div class="detailCol">
+              <div class="detailPanel" data-tf="1m"><div class="detailPanelHead"><span>1m</span><button class="detailMin" title="Minimize">–</button></div><canvas></canvas></div>
+              <div class="detailDivider"></div>
+              <div class="detailPanel" data-tf="5m"><div class="detailPanelHead"><span>5m</span><button class="detailMin" title="Minimize">–</button></div><canvas></canvas></div>
+            </div>
+            <div class="detailCol">
+              <div class="detailPanel" data-tf="1h"><div class="detailPanelHead"><span>1h</span><button class="detailMin" title="Minimize">–</button></div><canvas></canvas></div>
+              <div class="detailDivider"></div>
+              <div class="detailPanel" data-tf="1d"><div class="detailPanelHead"><span>1d</span><button class="detailMin" title="Minimize">–</button></div><canvas></canvas></div>
+            </div>
           </div>
         </div>
       </div>

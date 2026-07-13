@@ -35,6 +35,60 @@ document.querySelectorAll("#detailGrid .detailPanel").forEach(p => {
   detailCanvasEls.set(p.dataset.tf, p.querySelector("canvas"));
 });
 
+// Redraws a panel's chart the instant its box changes size — whether from the user
+// dragging its native resize handle, or a sibling panel being minimized/restored —
+// instead of waiting for the next ~1s live-tick redraw to catch up.
+const detailResizeObserver = new ResizeObserver(entries => {
+  for (const entry of entries) {
+    const tf = entry.target.closest(".detailPanel")?.dataset.tf;
+    if (tf) renderDetailPanel(tf);
+  }
+});
+detailCanvasEls.forEach(canvas => detailResizeObserver.observe(canvas));
+
+$("detailGrid").addEventListener("click", e => {
+  const btn = e.target.closest(".detailMin");
+  if (!btn) return;
+  const panel = btn.closest(".detailPanel");
+  const collapsed = panel.classList.toggle("collapsed");
+  btn.textContent = collapsed ? "+" : "–";
+  btn.title = collapsed ? "Restore" : "Minimize";
+  if (collapsed) {
+    // stash any manually-dragged height so restoring brings it back, instead of
+    // the inline style (which wins over the .collapsed CSS rule) freezing it collapsed
+    panel.dataset.prevFlex = panel.style.flex || "";
+    panel.style.flex = "";
+  } else {
+    panel.style.flex = panel.dataset.prevFlex || "";
+  }
+});
+
+// Draggable divider between the two stacked panels in each detail-view column — drags
+// the flex-basis of the panel above it, letting its stacked sibling (flex:1, unset)
+// absorb the rest. Mirrors the same explicit-flex-override mechanism minimize uses.
+let detailDrag = null;
+document.querySelectorAll(".detailDivider").forEach(divider => {
+  divider.addEventListener("mousedown", e => {
+    const panel = divider.previousElementSibling;
+    if (!panel?.classList.contains("detailPanel") || panel.classList.contains("collapsed")) return;
+    detailDrag = { panel, divider, startY: e.clientY, startHeight: panel.getBoundingClientRect().height };
+    divider.classList.add("dragging");
+    document.body.style.cursor = "ns-resize";
+    e.preventDefault();
+  });
+});
+document.addEventListener("mousemove", e => {
+  if (!detailDrag) return;
+  const h = Math.max(32, detailDrag.startHeight + (e.clientY - detailDrag.startY));
+  detailDrag.panel.style.flex = `0 0 ${h}px`;
+});
+document.addEventListener("mouseup", () => {
+  if (!detailDrag) return;
+  detailDrag.divider.classList.remove("dragging");
+  document.body.style.cursor = "";
+  detailDrag = null;
+});
+
 /* ---------- formatting ---------- */
 function fmtPx(p){ if(p>=1000) return p.toLocaleString("en-US",{maximumFractionDigits:1}); if(p>=1) return p.toLocaleString("en-US",{maximumFractionDigits:4}); return p.toPrecision(4); }
 function fmtBig(n){ if(n==null) return "—"; if(n>=1e9) return (n/1e9).toFixed(n>=1e10?0:1)+"B"; if(n>=1e6) return (n/1e6).toFixed(0)+"M"; if(n>=1e3) return (n/1e3).toFixed(0)+"K"; return String(Math.round(n)); }
