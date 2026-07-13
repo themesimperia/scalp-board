@@ -12,13 +12,17 @@ const BASES = [
 
 const state = new Map();
 for (const [base, px, vol] of BASES) {
-  state.set(base, { px, open: px, vol, trades: Math.round(vol / 8000) });
+  state.set(base, { px, open: px, hi: px, lo: px, vol, trades: Math.round(vol / 8000) });
 }
 
 function step(s) {
   // occasional impulse to exercise the alert engine
   const shock = Math.random() < 0.002 ? (Math.random() - 0.5) * 0.06 : 0;
   s.px *= 1 + (Math.random() - 0.5) * 0.0025 + shock;
+  // running high/low since server start — a mock analog for a real exchange's 24h hi/lo,
+  // since this simulation never actually runs for a full 24h window
+  s.hi = Math.max(s.hi, s.px);
+  s.lo = Math.min(s.lo, s.px);
 }
 
 export function startTickers(onTicker, onStatus, intervalMs = 900) {
@@ -30,7 +34,8 @@ export function startTickers(onTicker, onStatus, intervalMs = 900) {
         base, sym: base + "USDT", last: s.px,
         chg: (s.px - s.open) / s.open * 100,
         vol: s.vol * (0.98 + Math.random() * 0.04),
-        trades: s.trades
+        trades: s.trades,
+        hi24: s.hi, lo24: s.lo
       });
     }
   }, intervalMs);
@@ -53,6 +58,13 @@ export async function fetchKlines(sym, interval, limit) {
     const l = Math.min(o, c) * (1 - Math.random() * volPct * 0.6);
     const t = Math.floor((now - (limit - i) * stepMs) / stepMs) * stepMs;
     out.push({ t, o, h, l, c });
+  }
+  if (s) {
+    // This synthetic history is a separate random walk from the ticker's own hi/lo tracking
+    // above — widen the tracked bounds so the 24h high/low reference line never renders
+    // inside a chart that already shows a wider swing than what the ticker has "seen" yet.
+    s.hi = Math.max(s.hi, ...out.map(b => b.h));
+    s.lo = Math.min(s.lo, ...out.map(b => b.l));
   }
   return out;
 }

@@ -9,7 +9,7 @@ export class Market {
     this.listingWarmupMs = 90_000;
   }
 
-  /** t: { base, sym, last, chg, vol, trades? } */
+  /** t: { base, sym, last, chg, vol, trades?, hi24?, lo24? } */
   upsert(source, t) {
     if (!(t.last > 0) || !t.base) return null;
     let c = this.coins.get(t.base);
@@ -18,13 +18,14 @@ export class Market {
       c = {
         base: t.base, sources: {}, best: source,
         last: t.last, prev: t.last, chg: t.chg ?? 0, vol: 0,
-        trades: null, natr: null, range: null, hist: []
+        trades: null, hi24: null, lo24: null, natr: null, range: null, hist: []
       };
       this.coins.set(t.base, c);
     }
     c.sources[source] = {
       sym: t.sym, last: t.last, chg: t.chg ?? 0,
-      vol: t.vol ?? 0, trades: t.trades ?? null, ts: Date.now()
+      vol: t.vol ?? 0, trades: t.trades ?? null,
+      hi24: t.hi24 ?? null, lo24: t.lo24 ?? null, ts: Date.now()
     };
 
     // pick best source by 24h quote volume
@@ -40,6 +41,8 @@ export class Market {
     c.vol = b.vol;
     // trade count is only exposed by Binance's API — surface it whenever Binance lists the coin
     c.trades = c.sources.binance?.trades ?? b.trades ?? null;
+    c.hi24 = b.hi24;
+    c.lo24 = b.lo24;
 
     // rolling price history (for impulse alerts), pruned to 90s
     const now = Date.now();
@@ -76,7 +79,9 @@ export class Market {
         v: Math.round(c.vol),
         t: c.trades,
         n: c.natr != null ? +c.natr.toFixed(2) : null,
-        r: c.range != null ? +c.range.toFixed(2) : null
+        r: c.range != null ? +c.range.toFixed(2) : null,
+        h24: c.hi24 ?? null,
+        l24: c.lo24 ?? null
       });
     }
     return out;

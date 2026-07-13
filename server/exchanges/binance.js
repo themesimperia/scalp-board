@@ -17,7 +17,8 @@ export function startTickers(onTicker, onStatus) {
         if (!t.s?.endsWith("USDT")) continue;
         onTicker(name, {
           base: t.s.slice(0, -4), sym: t.s,
-          last: +t.c, chg: +t.P, vol: +t.q, trades: +t.n
+          last: +t.c, chg: +t.P, vol: +t.q, trades: +t.n,
+          hi24: +t.h, lo24: +t.l
         });
       }
     });

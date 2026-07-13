@@ -335,8 +335,8 @@ function renderDetailPanel(tf) {
   const dpr = window.devicePixelRatio || 1;
   const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
   if (w > 0 && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
-  const price = coins.find(c => c.s === detailSym)?.l;
-  drawPanel(canvas, { bars: detailAggregators.get(tf).getBars(detailSym), price, symbol: detailSym, trendLines: detailTrendLines.get(tf), walls: topWallsFor(detailSym) });
+  const c = coins.find(x => x.s === detailSym);
+  drawPanel(canvas, { bars: detailAggregators.get(tf).getBars(detailSym), price: c?.l, symbol: detailSym, trendLines: detailTrendLines.get(tf), walls: topWallsFor(detailSym), hi24: c?.h24, lo24: c?.l24 });
 }
 
 function openPeriodPopover(anchorEl, sym) {
@@ -394,8 +394,12 @@ function makePanel(sym) {
     `<canvas></canvas>`;
   el.querySelector(".sym").onclick = e => openTagPopover(e.target, sym);
   el.querySelector(".metricsRow").onclick = e => openPeriodPopover(e.target, sym);
+  const canvas = el.querySelector("canvas");
+  canvas.style.cursor = "pointer";
+  canvas.title = "Click to expand";
+  canvas.onclick = () => openDetailView(sym);
   seedHistory(sym);
-  return { el, canvas: el.querySelector("canvas") };
+  return { el, canvas };
 }
 
 function openDetailView(sym) {
@@ -433,7 +437,8 @@ function drawPanelFor(sym, price) {
   const dpr = window.devicePixelRatio || 1;
   const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
   if (w > 0 && (p.canvas.width !== w || p.canvas.height !== h)) { p.canvas.width = w; p.canvas.height = h; }
-  drawPanel(p.canvas, { bars: aggregator.getBars(sym), price, symbol: sym, trendLines: trendLinesBySym.get(sym), walls: topWallsFor(sym) });
+  const c = coins.find(x => x.s === sym);
+  drawPanel(p.canvas, { bars: aggregator.getBars(sym), price, symbol: sym, trendLines: trendLinesBySym.get(sym), walls: topWallsFor(sym), hi24: c?.h24, lo24: c?.l24 });
 }
 
 function renderBoardGrid() {

@@ -34,16 +34,26 @@ assert.strictEqual(detectWalls({ bids: farBids, asks: [], last: 100, ex: "x", sy
 const m = new Market();
 m.upsert("binance", { base: "BTC", sym: "BTCUSDT", last: 100, chg: 1, vol: 5e9, trades: 100 });
 m.upsert("bybit",   { base: "BTC", sym: "BTCUSDT", last: 100.2, chg: 1.1, vol: 2e9 });
-m.upsert("okx",     { base: "BTC", sym: "BTC-USDT-SWAP", last: 99.9, chg: 0.9, vol: 9e9 });
+m.upsert("okx",     { base: "BTC", sym: "BTC-USDT-SWAP", last: 99.9, chg: 0.9, vol: 9e9, hi24: 105, lo24: 97 });
 const btc = m.coins.get("BTC");
 assert.strictEqual(m.coins.size, 1, "three exchanges dedup into one coin");
 assert.strictEqual(btc.best, "okx", "highest volume wins");
 assert.strictEqual(btc.last, 99.9, "price follows best source");
 assert.strictEqual(btc.trades, 100, "trade count taken from binance when available");
+assert.strictEqual(btc.hi24, 105, "24h high taken from the best source");
+assert.strictEqual(btc.lo24, 97, "24h low taken from the best source");
 
 const snap = m.snapshot();
 assert.strictEqual(snap.length, 1);
 assert.strictEqual(snap[0].s, "BTC");
 assert.strictEqual(snap[0].x, "okx");
+assert.strictEqual(snap[0].h24, 105);
+assert.strictEqual(snap[0].l24, 97);
+
+// hi24/lo24 default to null when a source never provides them
+const m2 = new Market();
+m2.upsert("binance", { base: "ETH", sym: "ETHUSDT", last: 3000, chg: 0, vol: 1e9 });
+assert.strictEqual(m2.snapshot()[0].h24, null, "missing hi24 defaults to null, not undefined");
+assert.strictEqual(m2.snapshot()[0].l24, null);
 
 console.log("All metric + market tests passed ✔");

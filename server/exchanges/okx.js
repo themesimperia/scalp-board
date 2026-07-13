@@ -27,7 +27,8 @@ export function startTickers(onTicker, onStatus, intervalMs = 3000) {
         onTicker(name, {
           base, sym: t.instId, last,
           chg: open > 0 ? (last - open) / open * 100 : 0,
-          vol: (+t.volCcy24h || 0) * last     // base volume * price ≈ quote volume
+          vol: (+t.volCcy24h || 0) * last,    // base volume * price ≈ quote volume
+          hi24: +t.high24h, lo24: +t.low24h
         });
       }
       onStatus?.(name, "live");

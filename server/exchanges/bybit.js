@@ -15,7 +15,8 @@ export function startTickers(onTicker, onStatus, intervalMs = 3000) {
           base: t.symbol.slice(0, -4), sym: t.symbol,
           last: +t.lastPrice,
           chg: +t.price24hPcnt * 100,       // fraction -> percent
-          vol: +t.turnover24h               // quote (USDT) volume
+          vol: +t.turnover24h,              // quote (USDT) volume
+          hi24: +t.highPrice24h, lo24: +t.lowPrice24h
         });
       }
       onStatus?.(name, "live");
