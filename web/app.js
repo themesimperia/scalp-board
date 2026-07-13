@@ -50,6 +50,19 @@ function connect(){
       renderScreener();
       feedAggregator(coins, Date.now());
       renderBoardGrid(); renderCoinList();
+      if (detailSym) {
+        const c = coins.find(x => x.s === detailSym);
+        if (c) {
+          detailAggregator.addTick(detailSym, Date.now(), c.l, 0);
+          const bars = detailAggregator.getBars(detailSym);
+          const latestBarT = bars.length ? bars[bars.length - 1].t : null;
+          if (latestBarT !== detailLastBarTs) {
+            detailLastBarTs = latestBarT;
+            detailTrendLines = findTrendLines(bars);
+          }
+          renderDetailView();
+        }
+      }
     } else if(m.t === "hello"){
       armedAlerts = m.alerts || []; walls = m.walls || []; renderStatus(m.status);
       renderArmed(); renderDensity(); renderDensityMap();
@@ -233,6 +246,31 @@ async function seedHistory(sym) {
       drawPanelFor(sym, coins.find(c => c.s === sym)?.l);
     }
   } catch { /* live ticks will still build the chart from here */ }
+}
+
+async function seedDetailHistory() {
+  const sym = detailSym, gen = detailAggregatorGen;
+  try {
+    const r = await fetch(`/api/candles?symbol=${sym}&interval=${detailTimeframe}&limit=200`);
+    if (!r.ok) return;
+    const candles = await r.json();
+    if (gen !== detailAggregatorGen || detailSym !== sym) return;
+    if (candles.length) {
+      detailAggregator.seedBars(sym, candles);
+      renderDetailView();
+    }
+  } catch { /* live ticks will still build the chart from here */ }
+}
+
+function renderDetailView() {
+  if (!detailSym) return;
+  const canvas = $("detailCanvas");
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+  if (w > 0 && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
+  const price = coins.find(c => c.s === detailSym)?.l;
+  drawPanel(canvas, { bars: detailAggregator.getBars(detailSym), price, symbol: detailSym, trendLines: detailTrendLines, walls: topWallsFor(detailSym) });
 }
 
 function openPeriodPopover(anchorEl, sym) {
@@ -559,6 +597,15 @@ $("timeframeSel").addEventListener("change", e => {
   lastBarTsBySym.clear();
   for (const sym of panelEls.keys()) seedHistory(sym);
   renderBoardGrid();
+});
+
+$("detailTimeframeSel").addEventListener("change", e => {
+  detailTimeframe = e.target.value;
+  detailAggregator = createBarAggregator(TIMEFRAMES[detailTimeframe]);
+  detailAggregatorGen++;
+  detailLastBarTs = null;
+  detailTrendLines = null;
+  seedDetailHistory();
 });
 
 $("gridDensitySel").addEventListener("change", e => {
