@@ -34,7 +34,7 @@ export async function fetchKlines(sym, interval, limit) {
   const j = await r.json();
   const list = (j.result?.list || []).slice().reverse();
   // [start, open, high, low, close, volume, turnover]
-  return list.map(k => ({ h: +k[2], l: +k[3], c: +k[4] }));
+  return list.map(k => ({ t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4] }));
 }
 
 export async function fetchDepth(sym) {

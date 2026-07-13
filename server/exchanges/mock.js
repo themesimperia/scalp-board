@@ -36,10 +36,14 @@ export function startTickers(onTicker, onStatus, intervalMs = 900) {
   }, intervalMs);
 }
 
+const INTERVAL_MS = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000 };
+
 export async function fetchKlines(sym, interval, limit) {
   const s = state.get(sym.replace("USDT", ""));
   const px = s ? s.px : 100;
   const volPct = interval === "1m" ? 0.004 : 0.009;
+  const stepMs = INTERVAL_MS[interval] || 300_000;
+  const now = Date.now();
   const out = [];
   let c = px;
   for (let i = 0; i < limit; i++) {
@@ -47,7 +51,8 @@ export async function fetchKlines(sym, interval, limit) {
     c = o * (1 + (Math.random() - 0.5) * volPct);
     const h = Math.max(o, c) * (1 + Math.random() * volPct * 0.6);
     const l = Math.min(o, c) * (1 - Math.random() * volPct * 0.6);
-    out.push({ h, l, c });
+    const t = Math.floor((now - (limit - i) * stepMs) / stepMs) * stepMs;
+    out.push({ t, o, h, l, c });
   }
   return out;
 }

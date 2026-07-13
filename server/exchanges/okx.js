@@ -44,7 +44,7 @@ export async function fetchKlines(sym, interval, limit) {
   if (!r.ok) throw new Error(`okx klines ${r.status}`);
   const j = await r.json();
   const list = (j.data || []).slice().reverse();
-  return list.map(k => ({ h: +k[2], l: +k[3], c: +k[4] }));
+  return list.map(k => ({ t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4] }));
 }
 
 export async function fetchDepth(sym) {

@@ -137,4 +137,19 @@ assert.strictEqual(r.status, 404, "unknown symbol returns 404");
 }
 
 server.close();
+
+// --- fetchKlines includes t (open time) and o (open price), aligned to interval boundaries ---
+{
+  const candles = await mock.fetchKlines("BTCUSDT", "5m", 5);
+  assert.strictEqual(candles.length, 5);
+  for (const k of candles) {
+    assert.ok(typeof k.t === "number" && k.t > 0, "candle has numeric t");
+    assert.ok(typeof k.o === "number" && k.o > 0, "candle has numeric o");
+    assert.strictEqual(k.t % 300_000, 0, "t aligns to the 5m interval boundary");
+  }
+  for (let i = 1; i < candles.length; i++) {
+    assert.strictEqual(candles[i].t - candles[i - 1].t, 300_000, "consecutive candles are exactly one interval apart");
+  }
+}
+
 console.log("candle api tests passed ✔");

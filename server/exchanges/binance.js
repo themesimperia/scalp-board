@@ -31,12 +31,12 @@ export function startTickers(onTicker, onStatus) {
   connect();
 }
 
-/** Normalized klines: [{h,l,c}], oldest -> newest. */
+/** Normalized klines: [{t,o,h,l,c}], oldest -> newest. */
 export async function fetchKlines(sym, interval, limit) {
   const r = await fetch(`${REST}/fapi/v1/klines?symbol=${sym}&interval=${interval}&limit=${limit}`);
   if (!r.ok) throw new Error(`binance klines ${r.status}`);
   const j = await r.json();
-  return j.map(k => ({ h: +k[2], l: +k[3], c: +k[4] }));
+  return j.map(k => ({ t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4] }));
 }
 
 /** Order book: { bids: [[price, qty]], asks: [[price, qty]] }, qty in base units. */
