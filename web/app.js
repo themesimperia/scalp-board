@@ -488,12 +488,27 @@ $("minVol").addEventListener("change", e => { minVol = +e.target.value; renderSc
 document.addEventListener("keydown", e => {
   if(e.key === "/" && document.activeElement !== $("search")){ e.preventDefault(); $("search").focus(); }
 });
+function applySort(k) {
+  if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = k === "s" ? 1 : -1; }
+  syncSortHeaders();
+  renderScreener();
+  renderBoardGrid();
+  renderCoinList();
+}
+
+function syncSortHeaders() {
+  [...$("headRow").children].forEach(x => x.classList.toggle("sorted", x.dataset.k === sortKey));
+  [...$("clHeadRow").children].forEach(x => x.classList.toggle("sorted", x.dataset.k === sortKey));
+}
+
 $("headRow").addEventListener("click", e => {
   const th = e.target.closest("th"); if(!th || !th.dataset.k) return;
-  const k = th.dataset.k;
-  if(sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = k === "s" ? 1 : -1; }
-  [...$("headRow").children].forEach(x => x.classList.toggle("sorted", x === th));
-  renderScreener();
+  applySort(th.dataset.k);
+});
+
+$("clHeadRow").addEventListener("click", e => {
+  const el = e.target.closest("span"); if(!el || !el.dataset.k) return;
+  applySort(el.dataset.k);
 });
 
 $("sideToggle").onclick = () => {

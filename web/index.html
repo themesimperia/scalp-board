@@ -123,6 +123,9 @@
   .freshDot.stale{background:var(--down)}
   .panel canvas{width:100%;flex:1;display:block;min-height:120px}
 
+  .clHeadRow{display:grid;grid-template-columns:1.3fr .8fr .6fr .6fr .8fr .8fr;gap:4px;padding:6px 8px;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--line);cursor:pointer;user-select:none;text-align:right}
+  .clHeadRow > span:first-child{text-align:left}
+  .clHeadRow span.sorted{color:var(--accent)}
   .clRow{display:grid;grid-template-columns:1.3fr .8fr .6fr .6fr .8fr .8fr;gap:4px;padding:4px 8px;font-size:10px;border-bottom:1px solid #0f1d21;border-left:3px solid transparent;text-align:right}
   .clRow.dim{display:block;text-align:left}
   .clRow > .s{text-align:left}
@@ -203,6 +206,14 @@
       <aside class="boardSidebar" id="boardSidebar">
         <div class="sidePanel" id="panelCoinList">
           <h3>Coin list</h3>
+          <div class="clHeadRow" id="clHeadRow">
+            <span data-k="s">Ticker</span>
+            <span data-k="c">Chg</span>
+            <span data-k="r">Rng</span>
+            <span data-k="n">NATR</span>
+            <span data-k="t">Trades</span>
+            <span data-k="v" class="sorted">Vol</span>
+          </div>
           <div class="sideBody" id="coinListBody"></div>
         </div>
         <div class="sidePanel" id="panelDensityMap">
