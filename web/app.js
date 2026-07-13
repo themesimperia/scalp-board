@@ -24,6 +24,13 @@ let gridPage = 0;
 let gridPageCount = 1;               // pages in the last renderBoardGrid() pass, so gridNext can wrap without recomputing selectCoins
 const panelEls = new Map();          // symbol -> {el, canvas}
 
+let detailSym = null;
+let detailTimeframe = null; // null until the first-ever open, which sets it to the CURRENT global `timeframe` at that moment (not at page load) — then persists independently across coins/sessions
+let detailAggregator = null;
+let detailAggregatorGen = 0;
+let detailLastBarTs = null;
+let detailTrendLines = null;
+
 /* ---------- formatting ---------- */
 function fmtPx(p){ if(p>=1000) return p.toLocaleString("en-US",{maximumFractionDigits:1}); if(p>=1) return p.toLocaleString("en-US",{maximumFractionDigits:4}); return p.toPrecision(4); }
 function fmtBig(n){ if(n==null) return "—"; if(n>=1e9) return (n/1e9).toFixed(n>=1e10?0:1)+"B"; if(n>=1e6) return (n/1e6).toFixed(0)+"M"; if(n>=1e3) return (n/1e3).toFixed(0)+"K"; return String(Math.round(n)); }
@@ -287,6 +294,26 @@ function makePanel(sym) {
   return { el, canvas: el.querySelector("canvas") };
 }
 
+function openDetailView(sym) {
+  if (detailTimeframe === null) detailTimeframe = timeframe; // first-ever open takes whatever the global timeframe currently is
+  detailSym = sym;
+  $("detailSymLabel").textContent = sym;
+  $("detailTimeframeSel").value = detailTimeframe;
+  $("boardGrid").classList.add("hidden");
+  $("boardDetail").classList.add("on");
+  detailAggregator = createBarAggregator(TIMEFRAMES[detailTimeframe]);
+  detailAggregatorGen++;
+  detailLastBarTs = null;
+  detailTrendLines = null;
+  seedDetailHistory();
+}
+
+function closeDetailView() {
+  detailSym = null;
+  $("boardDetail").classList.remove("on");
+  $("boardGrid").classList.remove("hidden");
+}
+
 function topWallsFor(sym) {
   const symWalls = walls.filter(w => w.sym === sym);
   const fmtWall = w => w && { ...w, ex: EX_TAG[w.ex] || w.ex, priceLabel: fmtPx(w.price) };
@@ -515,6 +542,14 @@ $("sideToggle").onclick = () => {
   $("boardSidebar").classList.toggle("collapsed");
   $("sideToggle").textContent = $("boardSidebar").classList.contains("collapsed") ? "›" : "‹";
 };
+
+$("coinListBody").addEventListener("click", e => {
+  const row = e.target.closest(".clRow");
+  if (!row?.dataset.sym) return;
+  openDetailView(row.dataset.sym);
+});
+
+$("detailClose").onclick = closeDetailView;
 
 $("timeframeSel").addEventListener("change", e => {
   timeframe = e.target.value;

@@ -147,6 +147,14 @@
   .periodPopover input,.periodPopover select{width:60px;padding:4px 6px;font-size:11px}
 
   .boardControls{display:flex;gap:6px;align-items:center}
+
+  .boardDetail{display:none;flex-direction:column;height:100%}
+  .boardDetail.on{display:flex}
+  .boardGrid.hidden{display:none}
+  .detailHead{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--line)}
+  .detailHead .sym{font-weight:700;font-size:14px}
+  .detailHead .spacer{flex:1}
+  #detailCanvas{flex:1;width:100%;display:block}
 </style>
 </head>
 <body>
@@ -228,6 +236,20 @@
       <button class="sideToggle" id="sideToggle" title="Collapse panel">‹</button>
       <div class="boardGridWrap">
         <div class="boardGrid" id="boardGrid"></div>
+        <div class="boardDetail" id="boardDetail">
+          <div class="detailHead">
+            <span class="sym" id="detailSymLabel"></span>
+            <select id="detailTimeframeSel">
+              <option value="1m">1m</option>
+              <option value="5m" selected>5m</option>
+              <option value="1h">1h</option>
+              <option value="4h">4h</option>
+            </select>
+            <span class="spacer"></span>
+            <button class="wlBtn" id="detailClose">✕ Close</button>
+          </div>
+          <canvas id="detailCanvas"></canvas>
+        </div>
       </div>
     </div>
   </div>
