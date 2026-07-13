@@ -141,6 +141,8 @@
   .periodPopover{position:absolute;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px;display:flex;gap:6px;align-items:center;z-index:20;font-size:11px}
   .periodPopover input,.periodPopover select{width:60px;padding:4px 6px;font-size:11px}
   .customPeriod{font-size:9px;color:var(--accent);cursor:pointer;text-decoration:underline dotted}
+
+  .boardControls{display:flex;gap:6px;align-items:center}
 </style>
 </head>
 <body>
@@ -159,6 +161,23 @@
     <button class="tagPill" data-tag="red" style="--tc:var(--down)"></button>
     <button class="tagPill" data-tag="green" style="--tc:var(--up)"></button>
     <button class="tagPill" data-tag="purple" style="--tc:#a463f2"></button>
+  </div>
+  <div class="boardControls" id="boardControls">
+    <select id="timeframeSel">
+      <option value="1M">1M</option>
+      <option value="5M" selected>5M</option>
+      <option value="15M">15M</option>
+    </select>
+    <button class="wlBtn" id="autoMode" title="Auto-advance pages">AUTO</button>
+    <button class="wlBtn" id="gridRefresh" title="Re-sort and refresh now">⟳</button>
+    <select id="gridDensitySel">
+      <option value="3">3</option>
+      <option value="6">6</option>
+      <option value="9" selected>9</option>
+    </select>
+    <button class="wlBtn" id="gridPrev">‹</button>
+    <span class="dim" id="gridPageLabel">1/1</span>
+    <button class="wlBtn" id="gridNext">›</button>
   </div>
   <div class="spacer"></div>
   <button class="wlBtn" id="wlToggle" title="Show watchlist only">★ Watchlist</button>

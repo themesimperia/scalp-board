@@ -273,6 +273,7 @@ function renderBoardGrid() {
   const list = selectCoins(coins, boardOpts());
   const pages = pageCount(list.length, gridDensity);
   gridPage = Math.min(gridPage, pages - 1);
+  $("gridPageLabel").textContent = `${gridPage + 1}/${pages}`;
   const pageList = paginate(list, gridPage, gridDensity);
   const grid = $("boardGrid");
 
@@ -444,4 +445,30 @@ $("headRow").addEventListener("click", e => {
 $("sideToggle").onclick = () => {
   $("boardSidebar").classList.toggle("collapsed");
   $("sideToggle").textContent = $("boardSidebar").classList.contains("collapsed") ? "›" : "‹";
+};
+
+$("timeframeSel").addEventListener("change", e => {
+  timeframe = e.target.value;
+  aggregator = createBarAggregator(TIMEFRAMES[timeframe]);
+  trendLinesBySym.clear();
+  lastBarTsBySym.clear();
+  renderBoardGrid();
+});
+
+$("gridDensitySel").addEventListener("change", e => {
+  gridDensity = +e.target.value;
+  gridPage = 0;
+  renderBoardGrid();
+});
+
+$("gridPrev").onclick = () => { gridPage = Math.max(0, gridPage - 1); renderBoardGrid(); };
+$("gridNext").onclick = () => { gridPage += 1; renderBoardGrid(); };
+$("gridRefresh").onclick = () => renderBoardGrid();
+
+let autoTimer = null;
+$("autoMode").onclick = () => {
+  const on = !$("autoMode").classList.contains("on");
+  $("autoMode").classList.toggle("on", on);
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  if (on) autoTimer = setInterval(() => { $("gridNext").click(); }, 8000);
 };
