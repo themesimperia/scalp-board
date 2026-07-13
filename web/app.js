@@ -11,8 +11,8 @@ let walls = [];
 let sortKey = "v", sortDir = -1, searchQ = "", minVol = 10_000_000, wlOnly = false;
 const watch = new Set(JSON.parse(localStorage.getItem("tb.watch") || "[]"));
 
-const TIMEFRAMES = { "1M": 60_000, "5M": 300_000, "15M": 900_000 };
-let timeframe = "5M";
+const TIMEFRAMES = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000 };
+let timeframe = "5m";
 let aggregator = createBarAggregator(TIMEFRAMES[timeframe]);
 const trendLinesBySym = new Map();   // symbol -> {resistance, support}
 const lastBarTsBySym = new Map();    // symbol -> last-seen bar's open ts (to know when a bar closed)
@@ -212,6 +212,15 @@ async function fetchCustomMetric(sym, interval, limit) {
   return { intervalLabel: `${interval}/${limit}`, natr: clientNatr(candles), range: clientAvgRange(candles) };
 }
 
+async function seedHistory(sym) {
+  try {
+    const r = await fetch(`/api/candles?symbol=${sym}&interval=${timeframe}&limit=200`);
+    if (!r.ok) return;
+    const candles = await r.json();
+    if (candles.length) aggregator.seedBars(sym, candles);
+  } catch { /* live ticks will still build the chart from here */ }
+}
+
 function openPeriodPopover(anchorEl, sym) {
   document.querySelector(".periodPopover")?.remove();
   const pop = document.createElement("div");
@@ -267,7 +276,15 @@ function makePanel(sym) {
     `<canvas></canvas>`;
   el.querySelector(".sym").onclick = e => openTagPopover(e.target, sym);
   el.querySelector(".metricsRow").onclick = e => openPeriodPopover(e.target, sym);
+  seedHistory(sym);
   return { el, canvas: el.querySelector("canvas") };
+}
+
+function topWallsFor(sym) {
+  const symWalls = walls.filter(w => w.sym === sym);
+  const bid = symWalls.filter(w => w.side === "bid").sort((a, b) => b.usd - a.usd)[0] || null;
+  const ask = symWalls.filter(w => w.side === "ask").sort((a, b) => b.usd - a.usd)[0] || null;
+  return { bid, ask };
 }
 
 function drawPanelFor(sym, price) {
@@ -276,7 +293,7 @@ function drawPanelFor(sym, price) {
   const rect = p.canvas.getBoundingClientRect();
   const w = Math.round(rect.width), h = Math.round(rect.height);
   if (w > 0 && (p.canvas.width !== w || p.canvas.height !== h)) { p.canvas.width = w; p.canvas.height = h; }
-  drawPanel(p.canvas, { bars: aggregator.getBars(sym), price, symbol: sym, trendLines: trendLinesBySym.get(sym) });
+  drawPanel(p.canvas, { bars: aggregator.getBars(sym), price, symbol: sym, trendLines: trendLinesBySym.get(sym), walls: topWallsFor(sym) });
 }
 
 function renderBoardGrid() {
@@ -470,6 +487,7 @@ $("timeframeSel").addEventListener("change", e => {
   aggregator = createBarAggregator(TIMEFRAMES[timeframe]);
   trendLinesBySym.clear();
   lastBarTsBySym.clear();
+  for (const sym of panelEls.keys()) seedHistory(sym);
   renderBoardGrid();
 });
 
