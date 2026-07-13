@@ -282,8 +282,9 @@ function makePanel(sym) {
 
 function topWallsFor(sym) {
   const symWalls = walls.filter(w => w.sym === sym);
-  const bid = symWalls.filter(w => w.side === "bid").sort((a, b) => b.usd - a.usd)[0] || null;
-  const ask = symWalls.filter(w => w.side === "ask").sort((a, b) => b.usd - a.usd)[0] || null;
+  const fmtWall = w => w && { ...w, ex: EX_TAG[w.ex] || w.ex, priceLabel: fmtPx(w.price) };
+  const bid = fmtWall(symWalls.filter(w => w.side === "bid").sort((a, b) => b.usd - a.usd)[0]) || null;
+  const ask = fmtWall(symWalls.filter(w => w.side === "ask").sort((a, b) => b.usd - a.usd)[0]) || null;
   return { bid, ask };
 }
 

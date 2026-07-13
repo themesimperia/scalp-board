@@ -98,7 +98,7 @@ function drawWallLine(ctx, wall, side, w, y, yMin, yMax) {
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
-  const label = `${wall.ex} ${fmtWallSize(wall.usd)} ${wall.price}`;
+  const label = `${wall.ex} ${fmtWallSize(wall.usd)} ${wall.priceLabel ?? wall.price}`;
   ctx.font = "9px monospace";
   const textW = ctx.measureText(label).width;
   const boxW = textW + 8, boxH = 14;
