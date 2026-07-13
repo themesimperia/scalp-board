@@ -40,6 +40,12 @@ export function drawPanel(canvas, { bars, price, symbol, trendLines }) {
     ctx.fillRect(cx - bw / 2, top, bw, Math.max(1, bot - top));
   });
 
+  // NOTE: bar.v is currently always 0 — feedAggregator() in app.js calls addTick() with
+  // vol=0 because the `snap` wire format only exposes a ROLLING 24h cumulative volume
+  // (coin.v), not per-tick trade volume. A delta between snapshots of a rolling sum does
+  // not cleanly represent a single bar's incremental volume, so this histogram is a
+  // placeholder until the backend streams real per-tick volume — do not "fix" it with a
+  // delta-based approximation.
   const maxV = Math.max(...bars.map(b => b.v), 1);
   bars.forEach((b, i) => {
     const cx = i * slot + slot / 2;

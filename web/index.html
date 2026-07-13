@@ -10,7 +10,7 @@
   :root{
     --bg:#0a1214; --panel:#0e1a1d; --panel-2:#122126; --line:#1b2f35;
     --text:#d9e6e4; --muted:#6e8a8c;
-    --up:#41d99d; --down:#ff5d73; --amber:#ffb454; --accent:#57cfc0;
+    --up:#41d99d; --down:#ff5d73; --amber:#ffb454; --accent:#57cfc0; --tag-purple:#a463f2;
     --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
     --font-display:'Archivo',system-ui,sans-serif;
   }
@@ -140,7 +140,6 @@
 
   .periodPopover{position:absolute;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px;display:flex;gap:6px;align-items:center;z-index:20;font-size:11px}
   .periodPopover input,.periodPopover select{width:60px;padding:4px 6px;font-size:11px}
-  .customPeriod{font-size:9px;color:var(--accent);cursor:pointer;text-decoration:underline dotted}
 
   .boardControls{display:flex;gap:6px;align-items:center}
 </style>
@@ -160,7 +159,7 @@
     <button class="tagPill on" data-tag="all">ALL</button>
     <button class="tagPill" data-tag="red" style="--tc:var(--down)"></button>
     <button class="tagPill" data-tag="green" style="--tc:var(--up)"></button>
-    <button class="tagPill" data-tag="purple" style="--tc:#a463f2"></button>
+    <button class="tagPill" data-tag="purple" style="--tc:var(--tag-purple)"></button>
   </div>
   <div class="boardControls" id="boardControls">
     <select id="timeframeSel">

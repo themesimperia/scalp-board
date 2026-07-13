@@ -16,9 +16,11 @@ let timeframe = "5M";
 let aggregator = createBarAggregator(TIMEFRAMES[timeframe]);
 const trendLinesBySym = new Map();   // symbol -> {resistance, support}
 const lastBarTsBySym = new Map();    // symbol -> last-seen bar's open ts (to know when a bar closed)
-const lastTickAt = new Map();        // symbol -> ts, for the freshness dot
+const lastTickAt = new Map();        // symbol -> ts (kept for potential future use; freshness dot uses lastSnapAt below)
+let lastSnapAt = 0;                  // ts of the last "snap" WS message received, drives the connection-level freshness dot
 let gridDensity = 9;                 // 3 / 6 / 9, Task 7 adds the selector
 let gridPage = 0;
+let gridPageCount = 1;               // pages in the last renderBoardGrid() pass, so gridNext can wrap without recomputing selectCoins
 const panelEls = new Map();          // symbol -> {el, canvas}
 
 /* ---------- formatting ---------- */
@@ -35,6 +37,7 @@ function connect(){
     let m; try{ m = JSON.parse(ev.data); }catch{ return; }
     if(m.t === "snap"){
       coins = m.coins; renderStatus(m.status);
+      lastSnapAt = Date.now(); // connection/feed-level freshness signal — see renderBoardGrid's stale dot
       $("klAge").textContent = m.klineTs ? Math.round((Date.now()-m.klineTs)/1000)+"s ago" : "loading…";
       renderScreener();
       feedAggregator(coins, Date.now());
@@ -183,7 +186,7 @@ function openTagPopover(anchorEl, sym) {
   pop.innerHTML =
     `<button data-c="" style="background:transparent" title="Clear"></button>` +
     TAG_COLORS.map(c => `<button data-c="${c}" style="background:${
-      c === "red" ? "var(--down)" : c === "green" ? "var(--up)" : "#a463f2"
+      c === "red" ? "var(--down)" : c === "green" ? "var(--up)" : "var(--tag-purple)"
     }"></button>`).join("");
   pop.addEventListener("click", e => {
     const b = e.target.closest("button");
@@ -223,9 +226,12 @@ function openPeriodPopover(anchorEl, sym) {
   pop.querySelector(".go").onclick = async () => {
     const interval = pop.querySelector(".ivl").value;
     const limit = Math.max(2, Math.min(500, +pop.querySelector(".cnt").value || 14));
-    const metric = await fetchCustomMetric(sym, interval, limit);
-    if (metric) { customMetrics.set(sym, metric); renderBoardGrid(); renderCoinList(); }
-    pop.remove();
+    try {
+      const metric = await fetchCustomMetric(sym, interval, limit);
+      if (metric) { customMetrics.set(sym, metric); renderBoardGrid(); renderCoinList(); }
+    } finally {
+      pop.remove();
+    }
   };
   document.body.appendChild(pop);
   setTimeout(() => document.addEventListener("click", function close(e) {
@@ -235,6 +241,10 @@ function openPeriodPopover(anchorEl, sym) {
 
 function feedAggregator(list, ts) {
   for (const c of list) {
+    // vol is hardcoded 0: the `snap` wire format only carries c.v, a ROLLING 24h cumulative
+    // volume, not per-tick trade volume. A delta between snaps doesn't cleanly represent a
+    // single bar's incremental volume, so it can't be derived client-side. The volume
+    // histogram in chart.js is a placeholder until the backend streams real per-tick volume.
     aggregator.addTick(c.s, ts, c.l, 0);
     lastTickAt.set(c.s, ts);
     const bars = aggregator.getBars(c.s);
@@ -270,12 +280,18 @@ function drawPanelFor(sym, price) {
 }
 
 function renderBoardGrid() {
+  if (!$("view-board").classList.contains("on")) return; // Board tab not visible — skip wasted work, next snap while visible will catch up
   const list = selectCoins(coins, boardOpts());
   const pages = pageCount(list.length, gridDensity);
+  gridPageCount = pages;
   gridPage = Math.min(gridPage, pages - 1);
   $("gridPageLabel").textContent = `${gridPage + 1}/${pages}`;
   const pageList = paginate(list, gridPage, gridDensity);
   const grid = $("boardGrid");
+  // Connection/feed-level freshness: honest signal is "is the WS still delivering snap
+  // messages at all", not per-symbol staleness (lastTickAt is stamped for every coin in
+  // the same pass as this render, so no symbol could ever appear stale relative to itself).
+  const stale = (Date.now() - lastSnapAt) > 5000;
 
   const seen = new Set();
   for (const c of pageList) {
@@ -292,8 +308,9 @@ function renderBoardGrid() {
     const natrEl = p.el.querySelector(".natr"), rangeEl = p.el.querySelector(".range");
     natrEl.textContent = cm ? `NATR ${cm.intervalLabel}: ${cm.natr?.toFixed(1) ?? "—"}` : `NATR: ${c.n?.toFixed(1) ?? "—"}`;
     rangeEl.textContent = cm ? `Rng: ${cm.range?.toFixed(1) ?? "—"}` : `Rng: ${c.r?.toFixed(1) ?? "—"}`;
-    p.el.style.borderColor = tagMap.has(c.s) ? `var(--${tagMap.get(c.s) === "green" ? "up" : tagMap.get(c.s) === "red" ? "down" : "accent"})` : "";
-    const stale = (Date.now() - (lastTickAt.get(c.s) ?? 0)) > 5000;
+    const tagColor = tagMap.get(c.s);
+    const borderVar = tagColor === "green" ? "--up" : tagColor === "red" ? "--down" : tagColor === "purple" ? "--tag-purple" : null;
+    p.el.style.borderColor = borderVar ? `var(${borderVar})` : "";
     p.el.querySelector(".freshDot").classList.toggle("stale", stale);
     drawPanelFor(c.s, c.l);
   }
@@ -341,6 +358,7 @@ function renderDensity(){
 
 /* ---------- sidebar panels ---------- */
 function renderCoinList() {
+  if (!$("view-board").classList.contains("on")) return; // sidebar lives inside the Board view — skip when it's not visible
   const list = selectCoins(coins, boardOpts()).slice(0, 100);
   $("coinListBody").innerHTML = list.map(c =>
     `<div class="clRow"><span class="s">${c.s}</span><span class="${c.c>=0?'up':'down'}">${(c.c>0?'+':'')+c.c.toFixed(1)}%</span><span class="dim">${fmtBig(c.v)}</span></div>`
@@ -462,7 +480,7 @@ $("gridDensitySel").addEventListener("change", e => {
 });
 
 $("gridPrev").onclick = () => { gridPage = Math.max(0, gridPage - 1); renderBoardGrid(); };
-$("gridNext").onclick = () => { gridPage += 1; renderBoardGrid(); };
+$("gridNext").onclick = () => { gridPage = (gridPage + 1) % gridPageCount; renderBoardGrid(); }; // wrap to page 0 past the last page, for AUTO mode cycling
 $("gridRefresh").onclick = () => renderBoardGrid();
 
 let autoTimer = null;
