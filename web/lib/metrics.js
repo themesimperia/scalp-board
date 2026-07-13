@@ -64,9 +64,10 @@ export function avgRange(candles) {
 }
 
 export function selectCoins(coins, opts = {}) {
-  const { minVol = 0, searchQ = "", tagFilter = "all", tags = new Map(), sortKey = "v", sortDir = -1 } = opts;
+  const { minVol = 0, searchQ = "", tagFilter = "all", tags = new Map(), wlOnly = false, sortKey = "v", sortDir = -1 } = opts;
   let list = coins.filter(c => c.v >= minVol);
   if (tagFilter !== "all") list = list.filter(c => tags.get(c.s) === tagFilter);
+  if (wlOnly) list = list.filter(c => tags.has(c.s)); // "favorites only": any tag color counts, matching the Screener's star/Watchlist toggle
   if (searchQ) list = list.filter(c => c.s.includes(searchQ));
   list = list.slice().sort((a, b) => {
     if (sortKey === "s") return sortDir * (a.s < b.s ? -1 : a.s > b.s ? 1 : 0);

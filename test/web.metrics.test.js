@@ -115,6 +115,12 @@ import { createBarAggregator, natr, avgRange, selectCoins, paginate, pageCount, 
   out = selectCoins(coins, { tagFilter: "green", tags });
   assert.deepStrictEqual(out.map(c => c.s), ["BTC"]);
 
+  // wlOnly ("favorites"): any tag color counts, regardless of which one
+  out = selectCoins(coins, { wlOnly: true, tags });
+  assert.deepStrictEqual(out.map(c => c.s).sort(), ["BTC", "ETH"]);
+  out = selectCoins(coins, { wlOnly: true, tags: new Map() });
+  assert.deepStrictEqual(out, []);
+
   // does not mutate input
   selectCoins(coins, { sortKey: "s", sortDir: 1 });
   assert.strictEqual(coins[0].s, "BTC", "original array order untouched");

@@ -8,8 +8,7 @@ let coins = [];                 // latest snapshot
 const prevPx = new Map();       // sym -> last price (for flashes)
 let armedAlerts = [];           // [{sym, level, side}]
 let walls = [];
-let sortKey = "v", sortDir = -1, searchQ = "", minVol = 10_000_000, wlOnly = false;
-const watch = new Set(JSON.parse(localStorage.getItem("tb.watch") || "[]"));
+let sortKey = "v", sortDir = -1, searchQ = "", minVol = 10_000_000, wlOnly = false; // wlOnly ("★ Watchlist"): show only coins tagged with any color
 
 const TIMEFRAMES = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000 };
 let timeframe = "5m";
@@ -35,9 +34,9 @@ document.querySelectorAll("#detailGrid .detailPanel").forEach(p => {
   detailCanvasEls.set(p.dataset.tf, p.querySelector("canvas"));
 });
 
-// Redraws a panel's chart the instant its box changes size — whether from the user
-// dragging its native resize handle, or a sibling panel being minimized/restored —
-// instead of waiting for the next ~1s live-tick redraw to catch up.
+// Redraws a panel's chart the instant its box changes size — whether from the divider
+// drag below, or a sibling panel being minimized/restored — instead of waiting for the
+// next ~1s live-tick redraw to catch up.
 const detailResizeObserver = new ResizeObserver(entries => {
   for (const entry of entries) {
     const tf = entry.target.closest(".detailPanel")?.dataset.tf;
@@ -161,9 +160,13 @@ function makeRow(sym){
     `<td class="hide-m dim"></td><td></td>`+
     `<td><span class="bell" title="Set price alert">⏰</span></td>`;
   tr.querySelector(".star").onclick = () => {
-    watch.has(sym) ? watch.delete(sym) : watch.add(sym);
-    localStorage.setItem("tb.watch", JSON.stringify([...watch]));
+    // star = quick favorite toggle on the same single-color tag every other view reads;
+    // an already-tagged coin (any color) fully untags, an untagged one gets the default green
+    if (tagMap.has(sym)) tagMap.delete(sym); else tagMap.set(sym, "green");
+    saveTags();
     renderScreener();
+    renderBoardGrid();
+    renderCoinList();
   };
   tr.querySelector(".bell").onclick = () => {
     const c = coins.find(x => x.s === sym);
@@ -192,7 +195,7 @@ function heatHTML(natr){
 }
 function visible(){
   let list = coins.filter(c => c.v >= minVol);
-  if(wlOnly) list = list.filter(c => watch.has(c.s));
+  if(wlOnly) list = list.filter(c => tagMap.has(c.s));
   if(searchQ) list = list.filter(c => c.s.includes(searchQ));
   list.sort((a,b) => {
     if(sortKey === "s") return sortDir * (a.s < b.s ? -1 : a.s > b.s ? 1 : 0);
@@ -212,7 +215,7 @@ function renderScreener(){
     if(!r){ r = makeRow(c.s); rowCache.set(c.s, r); }
     if(r.tr !== node) tbody.insertBefore(r.tr, node); else node = node.nextSibling;
 
-    r.tds[0].firstChild.classList.toggle("on", watch.has(c.s));
+    r.tds[0].firstChild.classList.toggle("on", tagMap.has(c.s));
     const tagEl = r.tr.querySelector(".tag");
     const tag = EX_TAG[c.x] || c.x;
     if(tagEl.textContent !== tag) tagEl.textContent = tag;
@@ -240,13 +243,14 @@ let tagFilter = "all";
 function saveTags() { localStorage.setItem("tb.tags", JSON.stringify([...tagMap])); }
 
 if (!localStorage.getItem("tb.tagsMigrated")) {
-  for (const sym of watch) tagMap.set(sym, "green"); // migrate the existing single-star watchlist, once ever
+  const legacyWatch = JSON.parse(localStorage.getItem("tb.watch") || "[]"); // pre-tag single-star watchlist, migrated once ever
+  for (const sym of legacyWatch) tagMap.set(sym, "green");
   localStorage.setItem("tb.tagsMigrated", "1");
   saveTags();
 }
 
 function boardOpts() {
-  return { minVol, searchQ, sortKey, sortDir, tagFilter, tags: tagMap };
+  return { minVol, searchQ, sortKey, sortDir, tagFilter, tags: tagMap, wlOnly };
 }
 
 $("tagPills").addEventListener("click", e => {
@@ -518,7 +522,7 @@ function renderCoinList() {
     const borderVar = tagColor === "green" ? "--up" : tagColor === "red" ? "--down" : tagColor === "purple" ? "--tag-purple" : null;
     const style = borderVar ? ` style="border-left-color:var(${borderVar})"` : "";
     return `<div class="clRow" data-sym="${c.s}"${style}>` +
-      `<span class="s">${c.s}</span>` +
+      `<span class="s" title="Click to set favorite color">${c.s}</span>` +
       `<span class="${c.c >= 0 ? 'up' : 'down'}">${(c.c > 0 ? '+' : '') + c.c.toFixed(1)}</span>` +
       `<span>${c.r == null ? "—" : c.r.toFixed(1)}</span>` +
       `<span>${c.n == null ? "—" : c.n.toFixed(1)}</span>` +
@@ -608,8 +612,17 @@ function beep(){
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
   document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "view-" + b.dataset.view));
+  // renderBoardGrid/renderCoinList skip work while the Board tab isn't visible (perf guard),
+  // so switching back to it needs an explicit refresh instead of waiting for the next ~1s snap tick
+  if (b.dataset.view === "board") { renderBoardGrid(); renderCoinList(); }
 });
-$("wlToggle").onclick = () => { wlOnly = !wlOnly; $("wlToggle").classList.toggle("on", wlOnly); renderScreener(); };
+$("wlToggle").onclick = () => {
+  wlOnly = !wlOnly;
+  $("wlToggle").classList.toggle("on", wlOnly);
+  renderScreener();
+  renderBoardGrid();
+  renderCoinList();
+};
 $("search").addEventListener("input", e => { searchQ = e.target.value.trim().toUpperCase(); renderScreener(); });
 $("minVol").addEventListener("change", e => { minVol = +e.target.value; renderScreener(); });
 document.addEventListener("keydown", e => {
@@ -646,6 +659,8 @@ $("sideToggle").onclick = () => {
 $("coinListBody").addEventListener("click", e => {
   const row = e.target.closest(".clRow");
   if (!row?.dataset.sym) return;
+  const symEl = e.target.closest(".s");
+  if (symEl) { openTagPopover(symEl, row.dataset.sym); return; } // click the ticker to pick a favorite color, same popover the grid panels use
   openDetailView(row.dataset.sym);
 });
 
