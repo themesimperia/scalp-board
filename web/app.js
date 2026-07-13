@@ -299,7 +299,8 @@ function drawPanelFor(sym, price) {
   const p = panelEls.get(sym);
   if (!p) return;
   const rect = p.canvas.getBoundingClientRect();
-  const w = Math.round(rect.width), h = Math.round(rect.height);
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
   if (w > 0 && (p.canvas.width !== w || p.canvas.height !== h)) { p.canvas.width = w; p.canvas.height = h; }
   drawPanel(p.canvas, { bars: aggregator.getBars(sym), price, symbol: sym, trendLines: trendLinesBySym.get(sym), walls: topWallsFor(sym) });
 }
