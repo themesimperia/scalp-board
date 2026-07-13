@@ -154,7 +154,10 @@
   .detailHead{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:1px solid var(--line)}
   .detailHead .sym{font-weight:700;font-size:14px}
   .detailHead .spacer{flex:1}
-  #detailCanvas{flex:1;width:100%;display:block}
+  .detailGrid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;padding:8px;min-height:0}
+  .detailPanel{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-height:0}
+  .detailPanelHead{padding:6px 8px;font-size:11px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line)}
+  .detailPanel canvas{flex:1;width:100%;display:block;min-height:0}
 </style>
 </head>
 <body>
@@ -239,16 +242,15 @@
         <div class="boardDetail" id="boardDetail">
           <div class="detailHead">
             <span class="sym" id="detailSymLabel"></span>
-            <select id="detailTimeframeSel">
-              <option value="1m">1m</option>
-              <option value="5m" selected>5m</option>
-              <option value="1h">1h</option>
-              <option value="4h">4h</option>
-            </select>
             <span class="spacer"></span>
             <button class="wlBtn" id="detailClose">✕ Close</button>
           </div>
-          <canvas id="detailCanvas"></canvas>
+          <div class="detailGrid" id="detailGrid">
+            <div class="detailPanel" data-tf="1m"><div class="detailPanelHead">1m</div><canvas></canvas></div>
+            <div class="detailPanel" data-tf="5m"><div class="detailPanelHead">5m</div><canvas></canvas></div>
+            <div class="detailPanel" data-tf="1h"><div class="detailPanelHead">1h</div><canvas></canvas></div>
+            <div class="detailPanel" data-tf="1d"><div class="detailPanelHead">1d</div><canvas></canvas></div>
+          </div>
         </div>
       </div>
     </div>

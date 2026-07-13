@@ -24,12 +24,16 @@ let gridPage = 0;
 let gridPageCount = 1;               // pages in the last renderBoardGrid() pass, so gridNext can wrap without recomputing selectCoins
 const panelEls = new Map();          // symbol -> {el, canvas}
 
+const DETAIL_TFS = ["1m", "5m", "1h", "1d"]; // the 4 charts shown side by side in the detail view, independent of the grid's own timeframe
 let detailSym = null;
-let detailTimeframe = null; // null until the first-ever open, which sets it to the CURRENT global `timeframe` at that moment (not at page load) — then persists independently across coins/sessions
-let detailAggregator = null;
-let detailAggregatorGen = 0;
-let detailLastBarTs = null;
-let detailTrendLines = null;
+let detailAggregatorGen = 0; // bumped on every open/coin-switch; guards all 4 in-flight seed fetches at once
+const detailAggregators = new Map();  // tf -> aggregator, one per DETAIL_TFS entry
+const detailLastBarTs = new Map();    // tf -> last-seen bar's open ts
+const detailTrendLines = new Map();   // tf -> {resistance, support}
+const detailCanvasEls = new Map();    // tf -> canvas element (static DOM, queried once below)
+document.querySelectorAll("#detailGrid .detailPanel").forEach(p => {
+  detailCanvasEls.set(p.dataset.tf, p.querySelector("canvas"));
+});
 
 /* ---------- formatting ---------- */
 function fmtPx(p){ if(p>=1000) return p.toLocaleString("en-US",{maximumFractionDigits:1}); if(p>=1) return p.toLocaleString("en-US",{maximumFractionDigits:4}); return p.toPrecision(4); }
@@ -53,14 +57,17 @@ function connect(){
       if (detailSym) {
         const c = coins.find(x => x.s === detailSym);
         if (c) {
-          detailAggregator.addTick(detailSym, Date.now(), c.l, 0);
-          const bars = detailAggregator.getBars(detailSym);
-          const latestBarT = bars.length ? bars[bars.length - 1].t : null;
-          if (latestBarT !== detailLastBarTs) {
-            detailLastBarTs = latestBarT;
-            detailTrendLines = findTrendLines(bars);
+          for (const tf of DETAIL_TFS) {
+            const agg = detailAggregators.get(tf);
+            agg.addTick(detailSym, Date.now(), c.l, 0);
+            const bars = agg.getBars(detailSym);
+            const latestBarT = bars.length ? bars[bars.length - 1].t : null;
+            if (latestBarT !== detailLastBarTs.get(tf)) {
+              detailLastBarTs.set(tf, latestBarT);
+              detailTrendLines.set(tf, findTrendLines(bars));
+            }
+            renderDetailPanel(tf);
           }
-          renderDetailView();
         }
       }
     } else if(m.t === "hello"){
@@ -248,29 +255,30 @@ async function seedHistory(sym) {
   } catch { /* live ticks will still build the chart from here */ }
 }
 
-async function seedDetailHistory() {
+async function seedDetailHistory(tf) {
   const sym = detailSym, gen = detailAggregatorGen;
   try {
-    const r = await fetch(`/api/candles?symbol=${sym}&interval=${detailTimeframe}&limit=200`);
+    const r = await fetch(`/api/candles?symbol=${sym}&interval=${tf}&limit=200`);
     if (!r.ok) return;
     const candles = await r.json();
     if (gen !== detailAggregatorGen || detailSym !== sym) return;
     if (candles.length) {
-      detailAggregator.seedBars(sym, candles);
-      renderDetailView();
+      detailAggregators.get(tf).seedBars(sym, candles);
+      renderDetailPanel(tf);
     }
   } catch { /* live ticks will still build the chart from here */ }
 }
 
-function renderDetailView() {
+function renderDetailPanel(tf) {
   if (!detailSym) return;
-  const canvas = $("detailCanvas");
+  const canvas = detailCanvasEls.get(tf);
+  if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
   if (w > 0 && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
   const price = coins.find(c => c.s === detailSym)?.l;
-  drawPanel(canvas, { bars: detailAggregator.getBars(detailSym), price, symbol: detailSym, trendLines: detailTrendLines, walls: topWallsFor(detailSym) });
+  drawPanel(canvas, { bars: detailAggregators.get(tf).getBars(detailSym), price, symbol: detailSym, trendLines: detailTrendLines.get(tf), walls: topWallsFor(detailSym) });
 }
 
 function openPeriodPopover(anchorEl, sym) {
@@ -333,18 +341,17 @@ function makePanel(sym) {
 }
 
 function openDetailView(sym) {
-  // first-ever open takes the global timeframe if it's one of the detail view's supported options, else falls back to 5m
-  if (detailTimeframe === null) detailTimeframe = ["1m", "5m", "1h", "4h"].includes(timeframe) ? timeframe : "5m";
   detailSym = sym;
+  detailAggregatorGen++;
   $("detailSymLabel").textContent = sym;
-  $("detailTimeframeSel").value = detailTimeframe;
   $("boardGrid").classList.add("hidden");
   $("boardDetail").classList.add("on");
-  detailAggregator = createBarAggregator(TIMEFRAMES[detailTimeframe]);
-  detailAggregatorGen++;
-  detailLastBarTs = null;
-  detailTrendLines = null;
-  seedDetailHistory();
+  for (const tf of DETAIL_TFS) {
+    detailAggregators.set(tf, createBarAggregator(TIMEFRAMES[tf]));
+    detailLastBarTs.set(tf, null);
+    detailTrendLines.set(tf, null);
+    seedDetailHistory(tf);
+  }
 }
 
 function closeDetailView() {
@@ -598,15 +605,6 @@ $("timeframeSel").addEventListener("change", e => {
   lastBarTsBySym.clear();
   for (const sym of panelEls.keys()) seedHistory(sym);
   renderBoardGrid();
-});
-
-$("detailTimeframeSel").addEventListener("change", e => {
-  detailTimeframe = e.target.value;
-  detailAggregator = createBarAggregator(TIMEFRAMES[detailTimeframe]);
-  detailAggregatorGen++;
-  detailLastBarTs = null;
-  detailTrendLines = null;
-  seedDetailHistory();
 });
 
 $("gridDensitySel").addEventListener("change", e => {
