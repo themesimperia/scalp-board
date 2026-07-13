@@ -1,13 +1,18 @@
 export function createBarAggregator(intervalMs, maxBars = 200) {
   const state = new Map(); // symbol -> { bars: [...] }
 
+  // A tick whose bucket is <= the current bar's t (browser clock trailing the
+  // exchange server clock that seeded real history, or simple out-of-order
+  // delivery) folds into the current bar rather than opening a new one —
+  // bars must stay chronologically monotonic for canvas x-axis positioning
+  // and the trend-line algorithm's index-based math to remain valid.
   function addTick(symbol, ts, price, vol = 0) {
     let s = state.get(symbol);
     if (!s) { s = { bars: [] }; state.set(symbol, s); }
     const bars = s.bars;
     const start = Math.floor(ts / intervalMs) * intervalMs;
     let cur = bars[bars.length - 1];
-    if (!cur || cur.t !== start) {
+    if (!cur || start > cur.t) {
       const o = cur ? cur.c : price;
       cur = { t: start, o, h: price, l: price, c: price, v: 0 };
       bars.push(cur);

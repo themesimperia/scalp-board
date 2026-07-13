@@ -237,4 +237,32 @@ import { createBarAggregator, natr, avgRange, selectCoins, paginate, pageCount, 
   assert.strictEqual(bars[2].o, 112, "new bar opens at the previous (seeded+extended) bar's close");
 }
 
+// --- addTick: clock-skew tick (bucket <= last bar's t) folds into the last bar instead of appending out of order ---
+{
+  const agg = createBarAggregator(60_000);
+  agg.addTick("BTC", 1_000, 100);
+  agg.addTick("BTC", 65_000, 110); // opens bar at t=60_000
+  agg.addTick("BTC", 125_000, 120); // opens bar at t=120_000
+  let bars = agg.getBars("BTC");
+  assert.strictEqual(bars.length, 3, "sanity: three bars established so far");
+  const barsBefore = bars.map(b => ({ ...b }));
+
+  // simulate clock skew: a tick whose bucket computes to BEFORE the last bar's t
+  agg.addTick("BTC", 61_000, 5); // floor(61000/60000)*60000 = 60_000, which is < last bar's t (120_000)
+  bars = agg.getBars("BTC");
+
+  assert.strictEqual(bars.length, 3, "no new bar appended for a chronologically-earlier tick");
+  const last = bars[bars.length - 1];
+  assert.strictEqual(last.t, barsBefore[2].t, "last bar's timestamp unchanged");
+  assert.strictEqual(last.h, Math.max(barsBefore[2].h, 5), "high folded in (unchanged here since 5 < previous high)");
+  assert.strictEqual(last.l, 5, "low updated to reflect the out-of-order tick's price");
+  assert.strictEqual(last.c, 5, "close updated to reflect the out-of-order tick's price (folded in, not discarded)");
+  for (let i = 0; i < bars.length; i++) {
+    assert.strictEqual(bars[i].t, barsBefore[i].t, "bar order/timestamps unchanged for all other bars");
+  }
+  for (let i = 1; i < bars.length; i++) {
+    assert.ok(bars[i].t >= bars[i - 1].t, "bars array remains monotonically non-decreasing in t");
+  }
+}
+
 console.log("web metrics (bar aggregation) tests passed ✔");

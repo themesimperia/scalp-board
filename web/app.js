@@ -14,6 +14,7 @@ const watch = new Set(JSON.parse(localStorage.getItem("tb.watch") || "[]"));
 const TIMEFRAMES = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "30m": 1_800_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000 };
 let timeframe = "5m";
 let aggregator = createBarAggregator(TIMEFRAMES[timeframe]);
+let aggregatorGen = 0; // bumped whenever `aggregator` is reassigned, so an in-flight seedHistory fetch can detect staleness
 const trendLinesBySym = new Map();   // symbol -> {resistance, support}
 const lastBarTsBySym = new Map();    // symbol -> last-seen bar's open ts (to know when a bar closed)
 const lastTickAt = new Map();        // symbol -> ts (kept for potential future use; freshness dot uses lastSnapAt below)
@@ -213,11 +214,17 @@ async function fetchCustomMetric(sym, interval, limit) {
 }
 
 async function seedHistory(sym) {
+  const gen = aggregatorGen; // capture before the await — a timeframe change in flight bumps this
   try {
     const r = await fetch(`/api/candles?symbol=${sym}&interval=${timeframe}&limit=200`);
     if (!r.ok) return;
     const candles = await r.json();
-    if (candles.length) aggregator.seedBars(sym, candles);
+    if (gen !== aggregatorGen) return; // stale response: timeframe changed (new aggregator) while this fetch was in flight
+    if (candles.length) {
+      aggregator.seedBars(sym, candles);
+      // redraw immediately so the panel doesn't sit blank/stale until the next ~1s snap tick
+      drawPanelFor(sym, coins.find(c => c.s === sym)?.l);
+    }
   } catch { /* live ticks will still build the chart from here */ }
 }
 
@@ -486,6 +493,7 @@ $("sideToggle").onclick = () => {
 $("timeframeSel").addEventListener("change", e => {
   timeframe = e.target.value;
   aggregator = createBarAggregator(TIMEFRAMES[timeframe]);
+  aggregatorGen++;
   trendLinesBySym.clear();
   lastBarTsBySym.clear();
   for (const sym of panelEls.keys()) seedHistory(sym);
