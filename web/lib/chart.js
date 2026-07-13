@@ -1,6 +1,6 @@
 const UP = "#41d99d", DOWN = "#ff5d73";
 
-export function drawPanel(canvas, { bars, price, symbol, trendLines }) {
+export function drawPanel(canvas, { bars, price, symbol, trendLines, walls }) {
   const ctx = canvas.getContext("2d");
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
@@ -64,6 +64,9 @@ export function drawPanel(canvas, { bars, price, symbol, trendLines }) {
     ctx.setLineDash([]);
   }
 
+  if (walls?.bid) drawWallLine(ctx, walls.bid, "bid", w, y, yMin, yMax);
+  if (walls?.ask) drawWallLine(ctx, walls.ask, "ask", w, y, yMin, yMax);
+
   if (trendLines?.resistance) drawTrendLine(ctx, trendLines.resistance, n, slot, y, DOWN);
   if (trendLines?.support) drawTrendLine(ctx, trendLines.support, n, slot, y, UP);
 }
@@ -78,4 +81,43 @@ function drawTrendLine(ctx, line, n, slot, y, color) {
   ctx.lineTo(x2, y(line.valueAt(n - 1)));
   ctx.stroke();
   ctx.restore();
+}
+
+function drawWallLine(ctx, wall, side, w, y, yMin, yMax) {
+  if (wall.price < yMin || wall.price > yMax) return;
+  const yy = y(wall.price);
+  const color = side === "bid" ? UP : DOWN;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.5;
+  ctx.setLineDash([2, 3]);
+  ctx.beginPath();
+  ctx.moveTo(0, yy);
+  ctx.lineTo(w, yy);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  const label = `${wall.ex} ${fmtWallSize(wall.usd)} ${wall.price}`;
+  ctx.font = "9px monospace";
+  const textW = ctx.measureText(label).width;
+  const boxW = textW + 8, boxH = 14;
+  const boxX = w - boxW - 2, boxY = yy - boxH / 2;
+  ctx.fillStyle = side === "bid" ? "rgba(65,217,157,.18)" : "rgba(255,93,115,.18)";
+  ctx.fillRect(boxX, boxY, boxW, boxH);
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.6;
+  ctx.strokeRect(boxX, boxY, boxW, boxH);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = color;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, boxX + 4, yy);
+  ctx.restore();
+}
+
+function fmtWallSize(usd) {
+  if (usd >= 1e6) return (usd / 1e6).toFixed(usd >= 1e7 ? 0 : 1) + "M";
+  if (usd >= 1e3) return Math.round(usd / 1e3) + "K";
+  return String(Math.round(usd));
 }
