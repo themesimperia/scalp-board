@@ -333,7 +333,8 @@ function makePanel(sym) {
 }
 
 function openDetailView(sym) {
-  if (detailTimeframe === null) detailTimeframe = timeframe; // first-ever open takes whatever the global timeframe currently is
+  // first-ever open takes the global timeframe if it's one of the detail view's supported options, else falls back to 5m
+  if (detailTimeframe === null) detailTimeframe = ["1m", "5m", "1h", "4h"].includes(timeframe) ? timeframe : "5m";
   detailSym = sym;
   $("detailSymLabel").textContent = sym;
   $("detailTimeframeSel").value = detailTimeframe;
