@@ -1,11 +1,11 @@
-# HiDPI Canvas Fix & Coin Detail View
+# HiDPI Canvas Fix, Coin Detail View & Coin List Columns
 
 **Date:** 2026-07-13
 **Status:** Approved for planning
 
 ## Context
 
-Two follow-ups from using the Board View feature:
+Three follow-ups from using the Board View feature:
 
 1. Chart panels look jagged/pixelated on high-DPI displays — the canvas
    backing-store resolution is set to CSS pixel size, not accounting for
@@ -14,6 +14,10 @@ Two follow-ups from using the Board View feature:
    controllable chart — clicking a coin in the sidebar Coin List should
    expand its chart to fill the whole grid area with its own timeframe
    selector, separate from the grid's global one.
+3. The Coin List sidebar panel only shows Ticker/Change/Volume today — the
+   user wants it to match a reference layout with Change/Range/NATR/
+   Trades/Vol columns, sortable column headers, and a colored left-edge
+   bar showing each coin's tag color.
 
 ## Goals
 
@@ -22,6 +26,10 @@ Two follow-ups from using the Board View feature:
    large chart for that coin, with an independent 1m/5m/1h/4h timeframe
    selector and a close/back control, while the sidebar itself stays
    visible and clicking a different coin switches directly to it.
+3. The Coin List sidebar shows Ticker/Change 24h/Range 1m/5/NATR 5m/14/
+   Trades 24h/Vol 24h with sortable column headers (sharing the same sort
+   state as the main grid) and a left-edge bar reflecting each coin's tag
+   color.
 
 ## Non-goals
 
@@ -32,6 +40,10 @@ Two follow-ups from using the Board View feature:
 - The detail view's timeframe selector offers only 1m/5m/1h/4h (not the
   full 1m/5m/15m/30m/1h/4h/1d set the global selector has) — matching
   what was actually requested, a focused/reduced set for quick reference.
+- The Coin List's new sort-by-column-header does not get its own
+  independent sort state — it shares `sortKey`/`sortDir` with the grid (and
+  the legacy Screener tab, which already used these same variables), by
+  explicit choice over adding a second, separate sort state to track.
 
 ## 1. HiDPI Canvas Fix
 
@@ -115,8 +127,46 @@ same kind of "last bar timestamp" gate `lastBarTsBySym` uses for grid
 panels — a parallel `detailLastBarTs` variable). Wall data reuses the
 existing `topWallsFor(sym)` helper unchanged.
 
+## 3. Coin List Columns & Sorting
+
+### Columns and tag-color bar
+
+`renderCoinList()` (`web/app.js:385-391`) currently builds each row as
+`Ticker / Change% / Vol` via a raw `innerHTML` template. It gains three
+more columns from the same `selectCoins` snapshot data the row already
+has access to (`c.r` range, `c.n` NATR, `c.t` trades — the exact same
+fields `renderScreener`'s table already displays, just reused here) and a
+left-edge color bar reflecting `tagMap.get(c.s)`, using the identical
+color-mapping already established for grid panel border-tinting
+(`web/app.js:336-337`: green→`--up`, red→`--down`, purple→`--tag-purple`,
+untagged→transparent/no bar).
+
+### Sortable header
+
+A new header row above the coin list body (`#clHeadRow`, styled
+compactly to fit the sidebar's width), with the same `data-k="..."`
+attribute convention the existing Screener table's `#headRow` already
+uses (`s`/`c`/`r`/`n`/`t`/`v`). Clicking a column reuses the exact same
+sort-toggle logic already in `#headRow`'s click handler (`web/app.js:480-485`)
+— this logic gets extracted into a small shared helper (e.g.
+`applySort(key)`) called by both header elements' click listeners, rather
+than duplicated, since both need identical toggle/reverse-direction
+behavior. `applySort` re-renders the
+Screener table, the grid, and the Coin List together (all three already
+read the same shared `sortKey`/`sortDir`), and updates the `.sorted`
+CSS class on whichever header (`#headRow` or `#clHeadRow`) matches the
+new `sortKey`, so both headers stay visually in sync regardless of which
+one triggered the sort.
+
 ## Testing
 
+- Coin List columns/sorting: DOM rendering + shared-state wiring, no
+  automated test coverage (same category as the rest of this project's UI
+  work) — verified via real headless-browser interaction: confirm all six
+  columns render with correct values matching the Screener table's own
+  numbers for the same coins, click each column header and confirm both
+  the Coin List and the grid panels re-order consistently, confirm a
+  tagged coin shows the correct-colored left bar.
 - HiDPI fix: no automated test (canvas rendering) — verified manually via
   real headless-browser screenshot comparison (checking the canvas
   backing-store dimensions scale with a simulated `devicePixelRatio`).
