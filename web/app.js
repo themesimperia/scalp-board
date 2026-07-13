@@ -150,12 +150,15 @@ function renderScreener(){
 /* ---------- board grid ---------- */
 const TAG_COLORS = ["red", "green", "purple"];
 const tagMap = new Map(JSON.parse(localStorage.getItem("tb.tags") || "[]"));
-if (!tagMap.size) {
-  for (const sym of watch) tagMap.set(sym, "green"); // migrate the existing single-star watchlist
-}
 let tagFilter = "all";
 
 function saveTags() { localStorage.setItem("tb.tags", JSON.stringify([...tagMap])); }
+
+if (!localStorage.getItem("tb.tagsMigrated")) {
+  for (const sym of watch) tagMap.set(sym, "green"); // migrate the existing single-star watchlist, once ever
+  localStorage.setItem("tb.tagsMigrated", "1");
+  saveTags();
+}
 
 function boardOpts() {
   return { minVol, searchQ, sortKey, sortDir, tagFilter, tags: tagMap };
