@@ -200,4 +200,41 @@ import { createBarAggregator, natr, avgRange, selectCoins, paginate, pageCount, 
   assert.strictEqual(findTrendLine(null, "low"), null, "null bars -> null");
 }
 
+// --- seedBars: populate with historical bars, cap at maxBars, live ticks extend seamlessly ---
+{
+  const agg = createBarAggregator(60_000, 3);
+  const historical = [
+    { t: 0, o: 100, h: 105, l: 98, c: 102, v: 10 },
+    { t: 60_000, o: 102, h: 108, l: 101, c: 106, v: 12 },
+    { t: 120_000, o: 106, h: 110, l: 104, c: 109, v: 8 }
+  ];
+  agg.seedBars("BTC", historical);
+  let bars = agg.getBars("BTC");
+  assert.strictEqual(bars.length, 3);
+  assert.deepStrictEqual(bars[2], { t: 120_000, o: 106, h: 110, l: 104, c: 109, v: 8 });
+
+  // seeding respects maxBars cap, keeping the most recent entries
+  const longHistory = Array.from({ length: 5 }, (_, i) => ({ t: i * 60_000, o: 100 + i, h: 105 + i, l: 98 + i, c: 102 + i, v: 1 }));
+  agg.seedBars("ETH", longHistory);
+  assert.strictEqual(agg.getBars("ETH").length, 3, "seeding caps at maxBars");
+  assert.strictEqual(agg.getBars("ETH")[0].t, 120_000, "oldest bars beyond the cap are dropped");
+
+  // a live tick whose bucket matches the last seeded bar extends it, not duplicates it
+  agg.addTick("BTC", 125_000, 112, 3); // bucket = floor(125000/60000)*60000 = 120000, matches last seeded bar
+  bars = agg.getBars("BTC");
+  assert.strictEqual(bars.length, 3, "extending the last seeded bar doesn't add a new one");
+  assert.strictEqual(bars[2].o, 106, "seeded bar's open price is preserved");
+  assert.strictEqual(bars[2].h, 112, "high extends to the new tick's price");
+  assert.strictEqual(bars[2].c, 112);
+  assert.strictEqual(bars[2].v, 11, "volume accumulates onto the seeded bar (8 + 3)");
+
+  // a live tick in a NEW bucket opens a new bar whose open = the previous bar's close, cap still enforced
+  agg.addTick("BTC", 185_000, 115);
+  bars = agg.getBars("BTC");
+  assert.strictEqual(bars.length, 3, "still capped at maxBars after a new bucket pushes+shifts");
+  assert.strictEqual(bars[0].t, 60_000, "oldest seeded bar (t=0) was shifted out");
+  assert.strictEqual(bars[2].t, 180_000);
+  assert.strictEqual(bars[2].o, 112, "new bar opens at the previous (seeded+extended) bar's close");
+}
+
 console.log("web metrics (bar aggregation) tests passed ✔");

@@ -28,7 +28,12 @@ export function createBarAggregator(intervalMs, maxBars = 200) {
     state.clear();
   }
 
-  return { addTick, getBars, reset };
+  function seedBars(symbol, historicalBars) {
+    const bars = historicalBars.slice(-maxBars).map(b => ({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v ?? 0 }));
+    state.set(symbol, { bars });
+  }
+
+  return { addTick, getBars, reset, seedBars };
 }
 
 export function natr(candles) {
