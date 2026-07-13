@@ -1,4 +1,4 @@
-import { createBarAggregator, selectCoins, paginate, pageCount, findTrendLines } from "./lib/metrics.js";
+import { createBarAggregator, selectCoins, paginate, pageCount, findTrendLines, natr as clientNatr, avgRange as clientAvgRange } from "./lib/metrics.js";
 import { drawPanel } from "./lib/chart.js";
 
 const $ = id => document.getElementById(id);
@@ -200,6 +200,39 @@ function openTagPopover(anchorEl, sym) {
   }), 0);
 }
 
+const customMetrics = new Map(); // symbol -> { intervalLabel, natr, range }
+
+async function fetchCustomMetric(sym, interval, limit) {
+  const r = await fetch(`/api/candles?symbol=${sym}&interval=${interval}&limit=${limit}`);
+  if (!r.ok) return null;
+  const candles = await r.json();
+  return { intervalLabel: `${interval}/${limit}`, natr: clientNatr(candles), range: clientAvgRange(candles) };
+}
+
+function openPeriodPopover(anchorEl, sym) {
+  document.querySelector(".periodPopover")?.remove();
+  const pop = document.createElement("div");
+  pop.className = "periodPopover";
+  const rect = anchorEl.getBoundingClientRect();
+  pop.style.left = rect.left + "px";
+  pop.style.top = (rect.bottom + 4) + "px";
+  pop.innerHTML =
+    `<select class="ivl"><option value="1m">1m</option><option value="5m" selected>5m</option><option value="15m">15m</option><option value="1h">1h</option></select>` +
+    `<input class="cnt" type="number" value="14" min="2" max="500">` +
+    `<button class="btn go">Go</button>`;
+  pop.querySelector(".go").onclick = async () => {
+    const interval = pop.querySelector(".ivl").value;
+    const limit = Math.max(2, Math.min(500, +pop.querySelector(".cnt").value || 14));
+    const metric = await fetchCustomMetric(sym, interval, limit);
+    if (metric) { customMetrics.set(sym, metric); renderBoardGrid(); renderCoinList(); }
+    pop.remove();
+  };
+  document.body.appendChild(pop);
+  setTimeout(() => document.addEventListener("click", function close(e) {
+    if (!pop.contains(e.target) && e.target !== anchorEl) { pop.remove(); document.removeEventListener("click", close); }
+  }), 0);
+}
+
 function feedAggregator(list, ts) {
   for (const c of list) {
     aggregator.addTick(c.s, ts, c.l, 0);
@@ -220,8 +253,10 @@ function makePanel(sym) {
   el.innerHTML =
     `<div class="panelHead"><span class="freshDot"></span><span class="sym" style="cursor:pointer"></span>` +
     `<span class="tag"></span><span class="spacer"></span><span class="chg"></span></div>` +
+    `<div class="panelHead metricsRow" style="cursor:pointer" title="Click to customize NATR/Range period"><span class="natr"></span><span class="range"></span></div>` +
     `<canvas></canvas>`;
   el.querySelector(".sym").onclick = e => openTagPopover(e.target, sym);
+  el.querySelector(".metricsRow").onclick = e => openPeriodPopover(e.target, sym);
   return { el, canvas: el.querySelector("canvas") };
 }
 
@@ -252,6 +287,10 @@ function renderBoardGrid() {
     const chgEl = p.el.querySelector(".chg");
     chgEl.textContent = (c.c > 0 ? "+" : "") + c.c.toFixed(1) + "%";
     chgEl.className = "chg " + (c.c >= 0 ? "up" : "down");
+    const cm = customMetrics.get(c.s);
+    const natrEl = p.el.querySelector(".natr"), rangeEl = p.el.querySelector(".range");
+    natrEl.textContent = cm ? `NATR ${cm.intervalLabel}: ${cm.natr?.toFixed(1) ?? "—"}` : `NATR: ${c.n?.toFixed(1) ?? "—"}`;
+    rangeEl.textContent = cm ? `Rng: ${cm.range?.toFixed(1) ?? "—"}` : `Rng: ${c.r?.toFixed(1) ?? "—"}`;
     p.el.style.borderColor = tagMap.has(c.s) ? `var(--${tagMap.get(c.s) === "green" ? "up" : tagMap.get(c.s) === "red" ? "down" : "accent"})` : "";
     const stale = (Date.now() - (lastTickAt.get(c.s) ?? 0)) > 5000;
     p.el.querySelector(".freshDot").classList.toggle("stale", stale);
